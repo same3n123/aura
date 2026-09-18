@@ -375,6 +375,9 @@ mic.onclick = () => {
   mic.classList.add('listening'); micLabel.textContent = 'Listening… tap to stop';
 };
 
+// Real arm commands go straight to the arm; everything else goes to Claude.
+const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
+
 // "move base 10" -> "b 10",  "elbow up by 15" -> "e +15",  "wrist minus 20" -> "w -20"
 const JOINTS = { base:'b', shoulder:'s', elbow:'e', wrist:'w', roll:'r', gripper:'g' };
 const WORDNUM = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10,
