@@ -71,6 +71,12 @@
     border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-top: 4px; }
   textarea { min-height: 90px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
   .hint { font-size: 13px; color: var(--ink-soft); margin: 6px 0 0; }
+  #shortcuts { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  #shortcuts th { text-align: left; font-size: 13px; color: var(--ink-soft); font-weight: 500; padding: 0 4px 4px; }
+  #shortcuts td { padding: 3px 2px; vertical-align: top; }
+  #shortcuts input { margin: 0; padding: 9px; font-size: 14px; }
+  #shortcuts .x { width: 34px; padding: 9px 0; background: transparent; color: var(--ink-soft); font-size: 18px; }
+  #addRow { margin-top: 8px; padding: 10px 14px; }
   #poses { font-size: 14px; color: var(--ink-soft); }
   .status { font-size: 14px; color: var(--ink-soft); min-height: 1.4em; margin-top: 8px; }
   .status.bad { color: var(--bad); }
@@ -85,7 +91,7 @@
 
 <div id="banner"></div>
 <header>
-  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v13</small></h1>
+  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v14</small></h1>
   <span id="link">not connected</span>
 </header>
 
@@ -142,6 +148,14 @@ at-left: lowered onto the object in the left square
 above-right: hovering above the right square
 at-right: lowered onto the right square"></textarea>
     </label>
+
+    <label style="margin-top:16px">Shortcuts: what you say, and what it does</label>
+    <table id="shortcuts">
+      <thead><tr><th style="width:42%">You say</th><th>It does (commands, comma-separated)</th><th></th></tr></thead>
+      <tbody id="shortcutRows"></tbody>
+    </table>
+    <button id="addRow" class="quiet" type="button">+ Add row</button>
+    <p class="hint">Right side can be anything the page understands: s 40, b 10, pick, open, go home, or plain words like "move base 10". Several commands run one second apart.</p>
 
     <label>Extra rules and examples (optional)
       <textarea id="examples" placeholder='"pick up the block" means: go above-left, go at-left, close, go above-left
@@ -208,6 +222,8 @@ const poses = $('poses');
 const connectBtn = $('connectBtn');
 const settingsStatus = $('settingsStatus');
 const banner = $('banner');
+const addRow = $('addRow');
+const shortcutRows = $('shortcutRows');
 // ============================================================
 //  Settings (kept in this browser)
 // ============================================================
@@ -218,10 +234,32 @@ const S = {
   get examples()     { return localStorage.getItem('aura.examples') || ''; },
   get delay()        { return parseFloat(localStorage.getItem('aura.delay') || '2.5'); },
   get lang()         { return localStorage.getItem('aura.lang') || 'en-IN'; },
+  get shortcuts()    { try { return JSON.parse(localStorage.getItem('aura.shortcuts') || '[]'); } catch (e) { return []; } },
 };
+function renderShortcuts(rows) {
+  shortcutRows.innerHTML = '';
+  (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do));
+}
+function addShortcutRow(say = '', does = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" class="say" placeholder="move shoulder up" autocapitalize="none"></td>' +
+                 '<td><input type="text" class="do" placeholder="s 40, b 10" autocapitalize="none"></td>' +
+                 '<td><button type="button" class="x" aria-label="remove">×</button></td>';
+  tr.querySelector('.say').value = say;
+  tr.querySelector('.do').value = does;
+  tr.querySelector('.x').onclick = () => tr.remove();
+  shortcutRows.appendChild(tr);
+}
+function readShortcuts() {
+  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({
+    say: tr.querySelector('.say').value.trim().toLowerCase(),
+    do:  tr.querySelector('.do').value.trim(),
+  })).filter(r => r.say && r.do);
+}
 function loadSettingsUI() {
   apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions;
   examples.value = S.examples; delay.value = S.delay; lang.value = S.lang;
+  renderShortcuts(S.shortcuts);
 }
 function saveSettings() {
   try {
@@ -231,6 +269,7 @@ function saveSettings() {
     localStorage.setItem('aura.examples', examples.value);
     localStorage.setItem('aura.delay', delay.value);
     localStorage.setItem('aura.lang', lang.value);
+    localStorage.setItem('aura.shortcuts', JSON.stringify(readShortcuts()));
   } catch (e) {
     settingsStatus.textContent = 'Could not save: this browser is blocking storage (private/incognito mode?).';
     settingsStatus.classList.add('bad');
@@ -244,6 +283,7 @@ function saveSettings() {
 }
 try { loadSettingsUI(); } catch (e) {}
 saveBtn.onclick = saveSettings;
+addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
 testBtn.onclick = async () => {
   const key = apiKey.value.trim();
   if (!key) { settingsStatus.textContent = 'Paste a key first.'; settingsStatus.classList.add('bad'); return; }
@@ -467,6 +507,42 @@ function resolveDirect(part) {
   return RAW.test(t) ? t : null;
 }
 
+// A shortcut phrase from Settings -> the list of commands on its right side
+function matchShortcut(t) {
+  const rows = S.shortcuts;
+  if (!rows.length) return null;
+  const flat = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const said = flat(t);
+  let best = null, bestD = 99;
+  const nums = x => (x.match(/\d+/g) || []).join(',');
+  for (const r of rows) {
+    if (nums(said) !== nums(r.say)) continue;         // numbers must match exactly
+    const d = editDistance(said, flat(r.say));
+    if (d < bestD) { bestD = d; best = r; }
+  }
+  const allow = said.length >= 8 ? 2 : said.length >= 3 ? 1 : 0;
+  if (!best || bestD > allow) return null;
+  return best.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean);
+}
+
+// One spoken piece -> a list of direct commands (usually one), or null if Claude is needed
+function resolveMany(part) {
+  const sc = matchShortcut(part);
+  if (sc) {
+    const out = [];
+    for (const c of sc) {
+      const r = resolveDirect(c);
+      if (r && !r.error) out.push(r);
+      else out.push(c.trim().toLowerCase());     // send as-is; the arm will say if it's unknown
+    }
+    return out;
+  }
+  const r = resolveDirect(part);
+  if (r === null) return null;
+  if (r.error) return r;
+  return [r];
+}
+
 const GAP_MS = 1000;   // pause between chained commands
 async function handleInput(raw) {
   logLine('[you] ' + raw);
@@ -476,12 +552,13 @@ async function handleInput(raw) {
 
   // split "move shoulder 40 and base 10, then open" into parts
   const parts = whole.toLowerCase().split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
-  const cmds = parts.map(resolveDirect);
+  const resolved = parts.map(resolveMany);
 
-  const bad = cmds.find(c => c && c.error);
+  const bad = resolved.find(c => c && c.error);
   if (bad) { setStatus('Heard a joint but no number in: "' + bad.error + '"', true); return; }
 
-  if (cmds.every(Boolean)) {
+  if (resolved.every(Boolean)) {
+    const cmds = resolved.flat();
     if (!rxChar) { setStatus('Not connected to the arm.', true); return; }
     try {
       for (let i = 0; i < cmds.length; i++) {
