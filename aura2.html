@@ -85,7 +85,7 @@
 
 <div id="banner"></div>
 <header>
-  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v12</small></h1>
+  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v13</small></h1>
   <span id="link">not connected</span>
 </header>
 
@@ -454,27 +454,47 @@ function matchPose(t) {
 }
 
 askBtn.onclick = () => handleInput(typed.value);
-async function handleInput(raw) {
-  logLine('[you] ' + raw);                          // always visible in the log, even if nothing else happens
-  // tidy what speech recognition gives us: "Go home." -> "go home"
-  let t = String(raw).trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase();
-  t = t.replace(/\b(\w+)( \1\b)+/g, '$1');            // "go go home" -> "go home"
-  if (!t) return;
+// Turn one spoken/typed piece into a direct arm command, or null if it needs Claude.
+function resolveDirect(part) {
+  let t = part.trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase();
+  t = t.replace(/\b(\w+)( \1\b)+/g, '$1');            // "base base 10" -> "base 10"
+  if (!t) return null;
   const pm = matchPose(t);
-  if (pm) t = 'go ' + pm;                          // a saved pose name on its own
-  const jm = pm ? null : parseJointMove(t);
-  if (jm && jm.error) { setStatus('Heard a joint but no number in: "' + t + '"', true); return; }
-  if (jm) t = jm;                                  // becomes a direct command below
-  if (RAW.test(t)) {
+  if (pm) return 'go ' + pm;
+  const jm = parseJointMove(t);
+  if (jm && jm.error) return { error: t };
+  if (jm) return jm;
+  return RAW.test(t) ? t : null;
+}
+
+const GAP_MS = 1000;   // pause between chained commands
+async function handleInput(raw) {
+  logLine('[you] ' + raw);
+  const whole = String(raw).trim();
+  if (!whole) return;
+  showHeard(whole, true);
+
+  // split "move shoulder 40 and base 10, then open" into parts
+  const parts = whole.toLowerCase().split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
+  const cmds = parts.map(resolveDirect);
+
+  const bad = cmds.find(c => c && c.error);
+  if (bad) { setStatus('Heard a joint but no number in: "' + bad.error + '"', true); return; }
+
+  if (cmds.every(Boolean)) {
     if (!rxChar) { setStatus('Not connected to the arm.', true); return; }
-    showHeard(t, true);
-    try { await send(t); setStatus('Sent to arm: ' + t, false, true); typed.value = ''; }
-    catch (e) { setStatus('Send failed: ' + e.message, true); }
+    try {
+      for (let i = 0; i < cmds.length; i++) {
+        await send(cmds[i]);
+        setStatus('Sent: ' + cmds.slice(0, i + 1).join('  ›  '), false, true);
+        if (i < cmds.length - 1) await sleep(GAP_MS);
+      }
+      typed.value = '';
+    } catch (e) { setStatus('Send failed: ' + e.message, true); }
     return;
   }
-  showHeard(t, true); ask(t);
+  ask(whole);                                       // needs a plan from Claude
 }
-typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
 
 function showHeard(text, final) {
   heard.textContent = text ? (final ? '“' + text + '”' : text) : '';
