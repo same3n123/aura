@@ -158,9 +158,10 @@ at-right: lowered onto the right square"></textarea>
     </label>
 
     <div class="row">
-      <button id="saveBtn" class="quiet">Save settings</button>
+      <button id="saveBtn">Save settings</button>
       <button id="reloadBtn" class="quiet">Reload poses</button>
     </div>
+    <div class="status" id="settingsStatus"></div>
   </details>
 </div>
 
@@ -181,13 +182,23 @@ function loadSettingsUI() {
   examples.value = S.examples; delay.value = S.delay; lang.value = S.lang;
 }
 function saveSettings() {
-  localStorage.setItem('aura.apiKey', apiKey.value.trim());
-  localStorage.setItem('aura.model', model.value.trim() || 'claude-sonnet-5');
-  localStorage.setItem('aura.desc', descriptions.value);
-  localStorage.setItem('aura.examples', examples.value);
-  localStorage.setItem('aura.delay', delay.value);
-  localStorage.setItem('aura.lang', lang.value);
-  setStatus('Settings saved.');
+  try {
+    localStorage.setItem('aura.apiKey', apiKey.value.trim());
+    localStorage.setItem('aura.model', model.value.trim() || 'claude-sonnet-5');
+    localStorage.setItem('aura.desc', descriptions.value);
+    localStorage.setItem('aura.examples', examples.value);
+    localStorage.setItem('aura.delay', delay.value);
+    localStorage.setItem('aura.lang', lang.value);
+  } catch (e) {
+    settingsStatus.textContent = 'Could not save: this browser is blocking storage (private/incognito mode?).';
+    settingsStatus.classList.add('bad');
+    return;
+  }
+  const hasKey = !!S.apiKey;
+  settingsStatus.textContent = hasKey ? 'Saved. API key stored.' : 'Saved, but the API key is empty.';
+  settingsStatus.classList.toggle('bad', !hasKey);
+  setStatus(hasKey ? 'Settings saved.' : 'Settings saved - but no API key yet.', !hasKey);
+  if (hasKey) setTimeout(() => { document.querySelector('details').open = false; window.scrollTo({ top: 0 }); }, 700);
 }
 try { loadSettingsUI(); } catch (e) {}
 saveBtn.onclick = saveSettings;
