@@ -106,7 +106,7 @@
     <button id="askBtn" class="quiet" disabled>Ask</button>
   </div>
   <div id="heard"></div>
-  <div class="status" id="status"></div>
+  <div class="status" id="statusLine"></div>
 </div>
 
 <div class="panel" id="plan" hidden>
@@ -175,6 +175,31 @@ at-right: lowered onto the right square"></textarea>
 </div>
 
 <script>
+const $ = id => document.getElementById(id);
+const link = $('link');
+const mic = $('mic');
+const micLabel = $('micLabel');
+const askBtn = $('askBtn');
+const typed = $('typed');
+const heard = $('heard');
+const planSay = $('planSay');
+const planList = $('planList');
+const runBtn = $('runBtn');
+const cancelBtn = $('cancelBtn');
+const log = $('log');
+const apiKey = $('apiKey');
+const model = $('model');
+const descriptions = $('descriptions');
+const examples = $('examples');
+const delay = $('delay');
+const lang = $('lang');
+const saveBtn = $('saveBtn');
+const testBtn = $('testBtn');
+const reloadBtn = $('reloadBtn');
+const poses = $('poses');
+const connectBtn = $('connectBtn');
+const settingsStatus = $('settingsStatus');
+const banner = $('banner');
 // ============================================================
 //  Settings (kept in this browser)
 // ============================================================
@@ -483,8 +508,9 @@ runBtn.onclick = async () => {
 // ============================================================
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 let bannerTimer = null;
+const statusEl = document.getElementById('statusLine');
 function setStatus(msg, bad, good) {
-  status.textContent = msg; status.classList.toggle('bad', !!bad);
+  statusEl.textContent = msg; statusEl.classList.toggle('bad', !!bad);
   banner.textContent = msg;
   banner.className = msg ? 'show' + (bad ? ' bad' : good ? ' good' : '') : '';
   clearTimeout(bannerTimer);
