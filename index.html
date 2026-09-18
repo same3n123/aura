@@ -326,7 +326,7 @@ if (SR) {
     let text = '';
     for (const r of e.results) text += r[0].transcript;
     showHeard(text, false);
-    if (e.results[e.results.length - 1].isFinal) { showHeard(text, true); ask(text); }
+    if (e.results[e.results.length - 1].isFinal) handleInput(text);
   };
   rec.onerror = e => { stopListening(); setStatus('Microphone: ' + e.error, true); };
   rec.onend = stopListening;
@@ -351,8 +351,11 @@ mic.addEventListener('contextmenu', e => e.preventDefault());
 
 // Real arm commands go straight to the arm; everything else goes to Claude.
 const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
-askBtn.onclick = async () => {
-  const t = typed.value.trim(); if (!t) return;
+askBtn.onclick = () => handleInput(typed.value);
+async function handleInput(raw) {
+  // tidy what speech recognition gives us: "Go home." -> "go home"
+  const t = String(raw).trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase();
+  if (!t) return;
   if (RAW.test(t)) {
     if (!rxChar) { setStatus('Not connected to the arm.', true); return; }
     showHeard(t, true);
@@ -361,7 +364,7 @@ askBtn.onclick = async () => {
     return;
   }
   showHeard(t, true); ask(t);
-};
+}
 typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
 
 function showHeard(text, final) {
