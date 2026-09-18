@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AURA voice</title>
+<meta name="theme-color" content="#1B2A41">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --bg: #E9EEF2;
+    --panel: #FFFFFF;
+    --ink: #1B2A41;
+    --ink-soft: #5B6B80;
+    --line: #C9D3DC;
+    --go: #E8590C;
+    --go-ink: #FFFFFF;
+    --ok: #1E7F5C;
+    --bad: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
+    font-size: 16px; line-height: 1.4; }
+  body { padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  #link { font-size: 14px; color: var(--ink-soft); }
+  #link.on { color: var(--ok); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+
+  button { font: inherit; border: 0; border-radius: 12px; padding: 14px 16px; background: var(--ink); color: #fff;
+    touch-action: manipulation; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.quiet { background: #EEF2F5; color: var(--ink); }
+  button.danger { background: var(--bad); }
+  button:focus-visible { outline: 3px solid var(--go); outline-offset: 2px; }
+
+  /* the one loud thing on the page */
+  #mic { width: 100%; height: 108px; border-radius: 22px; background: var(--go); color: var(--go-ink);
+    font-size: 22px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  #mic.listening { background: var(--ink); }
+  #mic svg { width: 30px; height: 30px; }
+  @media (prefers-reduced-motion: no-preference) {
+    #mic.listening svg { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(1.18); } }
+  }
+
+  .typed { display: flex; gap: 8px; margin-top: 10px; }
+  .typed input { flex: 1; font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+
+  #heard { min-height: 1.4em; color: var(--ink-soft); margin-top: 10px; }
+  #heard.has { color: var(--ink); font-size: 18px; }
+
+  #plan ol { margin: 8px 0 0; padding-left: 22px; font-size: 17px; }
+  #plan li { padding: 3px 0; }
+  #plan li.done { color: var(--ink-soft); text-decoration: line-through; }
+  #plan li.now  { color: var(--go); font-weight: 600; }
+  #planSay { color: var(--ink-soft); margin: 0 0 4px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+  #log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; white-space: pre-wrap;
+    color: var(--ink-soft); max-height: 160px; overflow: auto; margin: 0; }
+
+  details summary { cursor: pointer; font-weight: 600; }
+  label { display: block; margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  input[type=text], input[type=password], textarea, select { width: 100%; font: inherit; padding: 10px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-top: 4px; }
+  textarea { min-height: 90px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .hint { font-size: 13px; color: var(--ink-soft); margin: 6px 0 0; }
+  #poses { font-size: 14px; color: var(--ink-soft); }
+  .status { font-size: 14px; color: var(--ink-soft); min-height: 1.4em; margin-top: 8px; }
+  .status.bad { color: var(--bad); }
+  #banner { position: sticky; top: 0; z-index: 5; margin: -14px -14px 12px; padding: 12px 16px; font-size: 16px;
+    background: var(--ink); color: #fff; display: none; }
+  #banner.show { display: block; }
+  #banner.bad { background: var(--bad); }
+  #banner.good { background: var(--ok); }
+</style>
+</head>
+<body>
+
+<div id="banner"></div>
+<header>
+  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v9</small></h1>
+  <span id="link">not connected</span>
+</header>
+
+<div class="panel" id="connectPanel">
+  <button id="connectBtn" style="width:100%">Connect to AURA-ARM</button>
+  <div id="poses" style="margin-top:10px">Connect to load the saved poses.</div>
+</div>
+
+<div class="panel">
+  <button id="mic" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+    </svg>
+    <span id="micLabel">Tap to talk</span>
+  </button>
+  <div class="typed">
+    <input id="typed" type="text" placeholder="or type what you'd say" autocomplete="off">
+    <button id="askBtn" class="quiet" disabled>Ask</button>
+  </div>
+  <div id="heard"></div>
+  <div class="status" id="statusLine"></div>
+</div>
+
+<div class="panel" id="plan" hidden>
+  <p id="planSay"></p>
+  <ol id="planList"></ol>
+  <div class="row">
+    <button id="cancelBtn" class="quiet">Cancel</button>
+    <button id="runBtn">Confirm and run</button>
+  </div>
+</div>
+
+<div class="panel">
+  <pre id="log">arm replies show here</pre>
+</div>
+
+<div class="panel">
+  <details>
+    <summary>Settings</summary>
+
+    <label>Claude API key
+      <input id="apiKey" type="password" placeholder="sk-ant-…">
+    </label>
+    <p class="hint">Stays in this browser only. Get one at console.anthropic.com.</p>
+
+    <label>Model
+      <input id="model" type="text" value="claude-sonnet-5">
+    </label>
+
+    <label>What each pose means (one per line: name: description)
+      <textarea id="descriptions" placeholder="home: resting position, gripper open
+above-left: hovering above the left square, gripper open
+at-left: lowered onto the object in the left square
+above-right: hovering above the right square
+at-right: lowered onto the right square"></textarea>
+    </label>
+
+    <label>Extra rules and examples (optional)
+      <textarea id="examples" placeholder='"pick up the block" means: go above-left, go at-left, close, go above-left
+"put it down" means: go at-right, open, go above-right
+"go to sleep" means: go home'></textarea>
+    </label>
+
+    <label>Seconds to wait between moves
+      <input id="delay" type="text" value="2.5" inputmode="decimal">
+    </label>
+
+    <label>Speech language
+      <select id="lang">
+        <option value="en-IN">English (India)</option>
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="hi-IN">Hindi</option>
+        <option value="te-IN">Telugu</option>
+      </select>
+    </label>
+
+    <div class="row">
+      <button id="saveBtn">Save settings</button>
+      <button id="testBtn" class="quiet">Test API key</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="reloadBtn" class="quiet">Reload poses</button>
+    </div>
+    <div class="status" id="settingsStatus"></div>
+  </details>
+</div>
+
+<script>
+window.onerror = (msg, src, line) => {
+  const b = document.getElementById('banner');
+  if (b) { b.textContent = 'Page error (line ' + line + '): ' + msg; b.className = 'show bad'; }
+};
+window.onunhandledrejection = e => {
+  const b = document.getElementById('banner');
+  if (b) { b.textContent = 'Error: ' + (e.reason && e.reason.message || e.reason); b.className = 'show bad'; }
+};
+const $ = id => document.getElementById(id);
+const link = $('link');
+const mic = $('mic');
+const micLabel = $('micLabel');
+const askBtn = $('askBtn');
+const typed = $('typed');
+const heard = $('heard');
+const planSay = $('planSay');
+const planList = $('planList');
+const runBtn = $('runBtn');
+const cancelBtn = $('cancelBtn');
+const log = $('log');
+const apiKey = $('apiKey');
+const model = $('model');
+const descriptions = $('descriptions');
+const examples = $('examples');
+const delay = $('delay');
+const lang = $('lang');
+const saveBtn = $('saveBtn');
+const testBtn = $('testBtn');
+const reloadBtn = $('reloadBtn');
+const poses = $('poses');
+const connectBtn = $('connectBtn');
+const settingsStatus = $('settingsStatus');
+const banner = $('banner');
+// ============================================================
+//  Settings (kept in this browser)
+// ============================================================
+const S = {
+  get apiKey()       { return localStorage.getItem('aura.apiKey') || ''; },
+  get model()        { return localStorage.getItem('aura.model') || 'claude-sonnet-5'; },
+  get descriptions() { return localStorage.getItem('aura.desc') || ''; },
+  get examples()     { return localStorage.getItem('aura.examples') || ''; },
+  get delay()        { return parseFloat(localStorage.getItem('aura.delay') || '2.5'); },
+  get lang()         { return localStorage.getItem('aura.lang') || 'en-IN'; },
+};
+function loadSettingsUI() {
+  apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions;
+  examples.value = S.examples; delay.value = S.delay; lang.value = S.lang;
+}
+function saveSettings() {
+  try {
+    localStorage.setItem('aura.apiKey', apiKey.value.trim());
+    localStorage.setItem('aura.model', model.value.trim() || 'claude-sonnet-5');
+    localStorage.setItem('aura.desc', descriptions.value);
+    localStorage.setItem('aura.examples', examples.value);
+    localStorage.setItem('aura.delay', delay.value);
+    localStorage.setItem('aura.lang', lang.value);
+  } catch (e) {
+    settingsStatus.textContent = 'Could not save: this browser is blocking storage (private/incognito mode?).';
+    settingsStatus.classList.add('bad');
+    return;
+  }
+  const hasKey = !!S.apiKey;
+  settingsStatus.textContent = hasKey ? 'Saved. API key stored.' : 'Saved, but the API key is empty.';
+  settingsStatus.classList.toggle('bad', !hasKey);
+  setStatus(hasKey ? 'Settings saved.' : 'Settings saved - but no API key yet.', !hasKey);
+  if (hasKey) setTimeout(() => { document.querySelector('details').open = false; window.scrollTo({ top: 0 }); }, 700);
+}
+try { loadSettingsUI(); } catch (e) {}
+saveBtn.onclick = saveSettings;
+testBtn.onclick = async () => {
+  const key = apiKey.value.trim();
+  if (!key) { settingsStatus.textContent = 'Paste a key first.'; settingsStatus.classList.add('bad'); return; }
+  settingsStatus.textContent = 'Testing…'; settingsStatus.classList.remove('bad');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
+                 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: model.value.trim() || 'claude-sonnet-5', max_tokens: 10,
+                             messages: [{ role: 'user', content: 'Say OK' }] }),
+    });
+    const body = await r.text();
+    if (r.ok) { settingsStatus.textContent = 'Key works.'; settingsStatus.classList.remove('bad'); }
+    else { settingsStatus.textContent = 'Key rejected (' + r.status + '): ' + body.slice(0, 160); settingsStatus.classList.add('bad'); }
+  } catch (e) { settingsStatus.textContent = 'Could not reach the API: ' + e.message; settingsStatus.classList.add('bad'); }
+};
+
+// ============================================================
+//  Bluetooth (Nordic UART, same as the terminal app)
+// ============================================================
+const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // we write here
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // arm notifies here
+let device = null, rxChar = null, inbox = '';
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+function setLink(on, text) {
+  link.textContent = text;
+  link.classList.toggle('on', on);
+  mic.disabled = askBtn.disabled = !on;
+  connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM';
+}
+
+async function connect() {
+  if (!navigator.bluetooth) {
+    setStatus('This browser has no Web Bluetooth. On Android use Chrome; on iPhone use the Bluefy app.', true);
+    return;
+  }
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'AURA-ARM' }], optionalServices: [NUS] });
+    device.addEventListener('gattserverdisconnected', () => { setLink(false, 'disconnected'); rxChar = null; });
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    rxChar = await svc.getCharacteristic(NUS_RX);
+    const txChar = await svc.getCharacteristic(NUS_TX);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', e => onArmText(dec.decode(e.target.value)));
+    setLink(true, 'connected');
+    setStatus('');
+    await loadPoses();
+  } catch (e) {
+    setStatus('Could not connect: ' + e.message, true);
+  }
+}
+function disconnect() { if (device && device.gatt.connected) device.gatt.disconnect(); }
+connectBtn.onclick = () => (rxChar ? disconnect() : connect());
+
+async function send(line) {
+  if (!rxChar) throw new Error('not connected');
+  logLine('> ' + line);
+  const bytes = enc.encode(line + '\n');
+  for (let i = 0; i < bytes.length; i += 20) {
+    await rxChar.writeValue(bytes.slice(i, i + 20));
+  }
+}
+
+function onArmText(t) {
+  inbox += t;
+  let nl;
+  while ((nl = inbox.indexOf('\n')) >= 0) {
+    const line = inbox.slice(0, nl); inbox = inbox.slice(nl + 1);
+    if (line.trim()) { logLine(line); poseParser(line); }
+  }
+}
+
+function logLine(s) {
+  const lines = (log.textContent + '\n' + s).split('\n').slice(-60);
+  log.textContent = lines.join('\n');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================
+//  Poses: ask the arm for "list" and read the names back
+// ============================================================
+let poseNames = [];
+let collecting = false;
+function poseParser(line) {
+  if (!collecting) return;
+  const m = line.match(/^\s*([a-z0-9-]+)\s+=\s+[\d,]+/i);
+  if (m && m[1] !== 'saved') poseNames.push(m[1]);
+}
+async function loadPoses() {
+  poseNames = []; collecting = true;
+  await send('list');
+  await sleep(1800);
+  collecting = false;
+  poses.textContent = poseNames.length
+    ? 'Saved poses: ' + poseNames.join(', ')
+    : 'No saved poses on the arm yet. Use the terminal app: drive it somewhere, then "save <name>".';
+}
+reloadBtn.onclick = () => rxChar ? loadPoses() : setStatus('Connect first.', true);
+
+// ============================================================
+//  Speech in
+// ============================================================
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+let listening = false, finalText = '';
+if (SR) {
+  rec = new SR();
+  rec.interimResults = true;
+  rec.continuous = true;
+  rec.onresult = e => {
+    let interim = '', final = '';
+    for (const r of e.results) (r.isFinal ? (final += r[0].transcript + ' ') : (interim += r[0].transcript));
+    finalText = final.trim();
+    showHeard((finalText + ' ' + interim).trim(), false);
+  };
+  rec.onerror = e => { if (e.error !== 'no-speech') setStatus('Microphone: ' + e.error, true); };
+  rec.onend = () => {
+    listening = false;
+    mic.classList.remove('listening'); micLabel.textContent = 'Tap to talk';
+    const t = finalText.trim(); finalText = '';
+    if (t) handleInput(t);
+  };
+} else {
+  micLabel.textContent = 'No mic support here - type instead';
+}
+mic.onclick = () => {
+  if (!rec) return;
+  if (listening) { try { rec.stop(); } catch (e) {} return; }   // second tap = stop
+  finalText = ''; showHeard('', false); setStatus('');
+  rec.lang = S.lang;
+  try { rec.start(); } catch (e) { setStatus('Mic: ' + e.message, true); return; }
+  listening = true;
+  mic.classList.add('listening'); micLabel.textContent = 'Listening… tap to stop';
+};
+
+// Real arm commands go straight to the arm; everything else goes to Claude.
+const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
+
+// "move base 10" -> "b 10",  "elbow up by 15" -> "e +15",  "wrist minus 20" -> "w -20"
+const JOINTS = { base:'b', shoulder:'s', elbow:'e', wrist:'w', roll:'r', gripper:'g' };
+const WORDNUM = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10,
+  eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16, seventeen:17, eighteen:18, nineteen:19,
+  twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100 };
+function wordsToDigits(t) {
+  // "one hundred twenty" -> 120, "ninety five" -> 95, "hundred" -> 100
+  return t.replace(/\b((?:one |two )?hundred(?: and)?(?: [a-z]+)?(?: [a-z]+)?|[a-z]+(?: [a-z]+)?)\b/g, m => {
+    const w = m.split(' ').filter(x => x !== 'and'); let n = 0, ok = false;
+    for (const x of w) { if (!(x in WORDNUM)) return m; ok = true; n = x === 'hundred' ? Math.max(n,1) * 100 : n + WORDNUM[x]; }
+    return ok ? String(n) : m;
+  });
+}
+function parseJointMove(t) {
+  t = wordsToDigits(t);
+  const m = t.match(/^(?:move |set |turn |rotate |go )?(base|shoulder|elbow|wrist|roll|gripper)\b(.*)$/);
+  if (!m) return null;
+  const j = JOINTS[m[1]], rest = m[2].trim();
+  let r;
+  if ((r = rest.match(/^(?:up|forward|plus|add|increase|more|\+)(?: by)? (\d+)$/)))  return `${j} +${r[1]}`;
+  if ((r = rest.match(/^(?:down|back|minus|reduce|decrease|less|-)(?: by)? (\d+)$/))) return `${j} -${r[1]}`;
+  if ((r = rest.match(/^(?:to|at)? ?(\d+)(?: degrees?)?$/)))                             return `${j} ${r[1]}`;
+  if ((r = rest.match(/^(?:by )?(\d+) (?:up|forward|more)$/)))                            return `${j} +${r[1]}`;
+  if ((r = rest.match(/^(?:by )?(\d+) (?:down|back|less)$/)))                             return `${j} -${r[1]}`;
+  return null;
+}
+
+askBtn.onclick = () => handleInput(typed.value);
+async function handleInput(raw) {
+  logLine('[you] ' + raw);                          // always visible in the log, even if nothing else happens
+  // tidy what speech recognition gives us: "Go home." -> "go home"
+  let t = String(raw).trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase();
+  if (!t) return;
+  const jm = parseJointMove(t);
+  if (jm) t = jm;                                  // becomes a direct command below
+  if (RAW.test(t)) {
+    if (!rxChar) { setStatus('Not connected to the arm.', true); return; }
+    showHeard(t, true);
+    try { await send(t); setStatus('Sent to arm: ' + t, false, true); typed.value = ''; }
+    catch (e) { setStatus('Send failed: ' + e.message, true); }
+    return;
+  }
+  showHeard(t, true); ask(t);
+}
+typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
+
+function showHeard(text, final) {
+  heard.textContent = text ? (final ? '“' + text + '”' : text) : '';
+  heard.classList.toggle('has', !!text);
+}
+
+// ============================================================
+//  The brain: send speech + pose list to Claude, get a plan
+// ============================================================
+function systemPrompt() {
+  const desc = S.descriptions.trim();
+  return `You control a small 6-servo hobby robot arm by choosing from a fixed list of commands.
+
+ALLOWED COMMANDS (nothing else exists):
+${poseNames.map(n => '  go ' + n).join('\n')}
+  open        (open the gripper)
+  close       (close the gripper)
+
+WHAT EACH POSE MEANS:
+${desc || '(no descriptions given - infer from the names)'}
+
+RULES:
+- Use only the allowed commands above, exactly as written. Never invent poses or angles.
+- To pick something up: go to the "above" pose, then the "at" pose, then close, then back to "above".
+- To put something down: "above" pose, "at" pose, open, back to "above".
+- Every plan ends with: go home
+- If the request is unclear, impossible with these poses, or unsafe, return an empty plan and explain in "say".
+- Keep "say" to one short spoken sentence confirming what you will do.
+${S.examples.trim() ? '\nEXAMPLES FROM THE OWNER:\n' + S.examples.trim() : ''}
+
+Respond with ONLY a JSON object, no markdown, no backticks:
+{"plan": ["go above-left", "close"], "say": "Picking up the block and moving it right."}`;
+}
+
+let plan = [];
+async function ask(text) {
+  if (!S.apiKey) { setStatus('Add your Claude API key in Settings first.', true); return; }
+  if (!poseNames.length) { setStatus('No poses loaded. Save some on the arm, then Reload poses.', true); return; }
+  setStatus('Asking Claude…');
+  hidePlan();
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': S.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: S.model, max_tokens: 500,
+        system: systemPrompt(),
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+    if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 200));
+    const data = await r.json();
+    const raw = data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
+    const out = JSON.parse(raw);
+    plan = (out.plan || []).filter(isAllowed);
+    const dropped = (out.plan || []).length - plan.length;
+    showPlan(out.say || '', dropped);
+    speak(out.say || '');
+    setStatus(plan.length ? '' : 'Nothing to run.');
+  } catch (e) {
+    setStatus('Could not get a plan: ' + e.message, true);
+  }
+}
+function isAllowed(cmd) {
+  cmd = String(cmd).trim().toLowerCase();
+  if (cmd === 'open' || cmd === 'close') return true;
+  const m = cmd.match(/^go ([a-z0-9-]+)$/);
+  return !!(m && poseNames.includes(m[1]));
+}
+
+// ============================================================
+//  Show the plan, wait for Confirm, then send it step by step
+// ============================================================
+function showPlan(say, dropped) {
+  planSay.textContent = say + (dropped ? `  (${dropped} unknown step${dropped > 1 ? 's' : ''} removed)` : '');
+  planList.innerHTML = '';
+  plan.forEach(c => { const li = document.createElement('li'); li.textContent = c; planList.appendChild(li); });
+  runBtn.disabled = !plan.length;
+  runBtn.textContent = 'Confirm and run';
+  document.getElementById('plan').hidden = false;
+}
+function hidePlan() { document.getElementById('plan').hidden = true; }
+cancelBtn.onclick = () => { running = false; hidePlan(); setStatus('Cancelled.'); };
+
+let running = false;
+runBtn.onclick = async () => {
+  if (running) { running = false; return; }
+  running = true;
+  runBtn.textContent = 'Stop';
+  cancelBtn.disabled = true;
+  const items = [...planList.children];
+  try {
+    for (let i = 0; i < plan.length && running; i++) {
+      items[i].classList.add('now');
+      await send(plan[i]);
+      await sleep(S.delay * 1000);
+      items[i].classList.remove('now'); items[i].classList.add('done');
+    }
+    setStatus(running ? 'Done.' : 'Stopped. Arm is wherever it got to - send "home" if needed.');
+  } catch (e) {
+    setStatus('Stopped: ' + e.message, true);
+  }
+  running = false;
+  runBtn.textContent = 'Run again';
+  cancelBtn.disabled = false;
+};
+
+// ============================================================
+//  Small helpers
+// ============================================================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+let bannerTimer = null;
+const statusEl = document.getElementById('statusLine');
+function setStatus(msg, bad, good) {
+  statusEl.textContent = msg; statusEl.classList.toggle('bad', !!bad);
+  banner.textContent = msg;
+  banner.className = msg ? 'show' + (bad ? ' bad' : good ? ' good' : '') : '';
+  clearTimeout(bannerTimer);
+  if (msg && !bad) bannerTimer = setTimeout(() => { banner.className = ''; }, 4000);
+}
+function speak(text) {
+  if (!text || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = S.lang;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+</script>
+</body>
+</html>
