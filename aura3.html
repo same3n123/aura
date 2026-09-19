@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AURA voice</title>
+<meta name="theme-color" content="#1B2A41">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --bg: #E9EEF2;
+    --panel: #FFFFFF;
+    --ink: #1B2A41;
+    --ink-soft: #5B6B80;
+    --line: #C9D3DC;
+    --go: #E8590C;
+    --go-ink: #FFFFFF;
+    --ok: #1E7F5C;
+    --bad: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, sans-serif;
+    font-size: 16px; line-height: 1.4; }
+  body { padding: 14px 14px calc(14px + env(safe-area-inset-bottom)); max-width: 560px; margin: 0 auto; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
+  header h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  #link { font-size: 14px; color: var(--ink-soft); }
+  #link.on { color: var(--ok); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+
+  button { font: inherit; border: 0; border-radius: 12px; padding: 14px 16px; background: var(--ink); color: #fff;
+    touch-action: manipulation; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.quiet { background: #EEF2F5; color: var(--ink); }
+  button.danger { background: var(--bad); }
+  button:focus-visible { outline: 3px solid var(--go); outline-offset: 2px; }
+
+  /* the one loud thing on the page */
+  #mic { width: 100%; height: 108px; border-radius: 22px; background: var(--go); color: var(--go-ink);
+    font-size: 22px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  #mic.listening { background: var(--ink); }
+  #mic svg { width: 30px; height: 30px; }
+  @media (prefers-reduced-motion: no-preference) {
+    #mic.listening svg { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(1.18); } }
+  }
+
+  .typed { display: flex; gap: 8px; margin-top: 10px; }
+  .typed input { flex: 1; font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+
+  #heard { min-height: 1.4em; color: var(--ink-soft); margin-top: 10px; }
+  #heard.has { color: var(--ink); font-size: 18px; }
+
+  #plan ol { margin: 8px 0 0; padding-left: 22px; font-size: 17px; }
+  #plan li { padding: 3px 0; }
+  #plan li.done { color: var(--ink-soft); text-decoration: line-through; }
+  #plan li.now  { color: var(--go); font-weight: 600; }
+  #planSay { color: var(--ink-soft); margin: 0 0 4px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+  #log { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; white-space: pre-wrap;
+    color: var(--ink-soft); max-height: 160px; overflow: auto; margin: 0; }
+
+  details summary { cursor: pointer; font-weight: 600; }
+  label { display: block; margin-top: 12px; font-size: 14px; color: var(--ink-soft); }
+  input[type=text], input[type=password], textarea, select { width: 100%; font: inherit; padding: 10px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fff; margin-top: 4px; }
+  textarea { min-height: 90px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .hint { font-size: 13px; color: var(--ink-soft); margin: 6px 0 0; }
+  #shortcuts { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  #shortcuts th { text-align: left; font-size: 13px; color: var(--ink-soft); font-weight: 500; padding: 0 4px 4px; }
+  #shortcuts td { padding: 3px 2px; vertical-align: top; }
+  #shortcuts input { margin: 0; padding: 9px; font-size: 14px; }
+  #shortcuts .x { width: 34px; padding: 9px 0; background: transparent; color: var(--ink-soft); font-size: 18px; }
+  #addRow { margin-top: 8px; padding: 10px 14px; }
+  #camWrap { position: relative; margin-top: 10px; border-radius: 12px; overflow: hidden; background: #000; }
+  #cam { width: 100%; display: block; }
+  #camOverlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #visionStatus { font-size: 14px; margin-top: 8px; min-height: 1.4em; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  #objectBox { display: flex; gap: 8px; margin-top: 10px; }
+  #objectBox input { flex: 1; font: inherit; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+  #poses { font-size: 14px; color: var(--ink-soft); }
+  .status { font-size: 14px; color: var(--ink-soft); min-height: 1.4em; margin-top: 8px; }
+  .status.bad { color: var(--bad); }
+  #banner { position: sticky; top: 0; z-index: 5; margin: -14px -14px 12px; padding: 12px 16px; font-size: 16px;
+    background: var(--ink); color: #fff; display: none; }
+  #banner.show { display: block; }
+  #banner.bad { background: var(--bad); }
+  #banner.good { background: var(--ok); }
+</style>
+</head>
+<body>
+
+<div id="banner"></div>
+<header>
+  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v16 vision</small></h1>
+  <span id="link">not connected</span>
+</header>
+
+<div class="panel" id="connectPanel">
+  <button id="connectBtn" style="width:100%">Connect to AURA-ARM</button>
+  <div id="poses" style="margin-top:10px">Connect to load the saved poses.</div>
+</div>
+
+<div class="panel">
+  <button id="mic" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+    </svg>
+    <span id="micLabel">Tap to talk</span>
+  </button>
+  <div class="typed">
+    <input id="typed" type="text" placeholder="or type what you'd say" autocomplete="off">
+    <button id="askBtn" class="quiet" disabled>Ask</button>
+  </div>
+  <div id="heard"></div>
+  <div class="status" id="statusLine"></div>
+</div>
+
+<div class="panel" id="plan" hidden>
+  <p id="planSay"></p>
+  <ol id="planList"></ol>
+  <div class="row">
+    <button id="cancelBtn" class="quiet">Cancel</button>
+    <button id="runBtn">Confirm and run</button>
+  </div>
+</div>
+
+<div class="panel" id="visionPanel">
+  <div style="display:flex;justify-content:space-between;align-items:baseline">
+    <strong>Camera</strong><span id="camState" style="font-size:14px;color:var(--ink-soft)">off</span>
+  </div>
+  <div id="camWrap" hidden>
+    <img id="cam" alt="gripper camera">
+    <svg id="camOverlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <g id="jawMark">
+        <line id="jawV" x1="50" y1="42" x2="50" y2="58" stroke="#E8590C" stroke-width="0.6"/>
+        <line id="jawH" x1="42" y1="50" x2="58" y2="50" stroke="#E8590C" stroke-width="0.6"/>
+      </g>
+      <circle id="objMark" cx="-10" cy="-10" r="3" fill="none" stroke="#4af" stroke-width="0.8"/>
+    </svg>
+  </div>
+  <div class="row3">
+    <button id="camBtn" class="quiet">Camera on</button>
+    <button id="lookBtn" class="quiet" disabled>Look</button>
+    <button id="calBtn" class="quiet" disabled>Calibrate</button>
+  </div>
+  <div id="objectBox">
+    <input id="objectName" type="text" placeholder="what to grab, e.g. earphone">
+    <button id="grabBtn" disabled>Grab</button>
+  </div>
+  <div id="visionStatus"></div>
+  <p class="hint" style="margin-top:6px">Tap the video where the jaw tips are. The orange cross marks where the object must be before lowering.</p>
+</div>
+
+<div class="panel">
+  <pre id="log">arm replies show here</pre>
+</div>
+
+<div class="panel">
+  <details>
+    <summary>Settings</summary>
+
+    <label>Claude API key
+      <input id="apiKey" type="password" placeholder="sk-ant-…">
+    </label>
+    <p class="hint">Stays in this browser only. Get one at console.anthropic.com.</p>
+
+    <label>Model
+      <input id="model" type="text" value="claude-sonnet-5">
+    </label>
+
+    <label>What each pose means (one per line: name: description)
+      <textarea id="descriptions" placeholder="home: resting position, gripper open
+above-left: hovering above the left square, gripper open
+at-left: lowered onto the object in the left square
+above-right: hovering above the right square
+at-right: lowered onto the right square"></textarea>
+    </label>
+
+    <label style="margin-top:16px">Shortcuts: what you say, and what it does</label>
+    <table id="shortcuts">
+      <thead><tr><th style="width:42%">You say</th><th>It does (commands, comma-separated)</th><th></th></tr></thead>
+      <tbody id="shortcutRows"></tbody>
+    </table>
+    <button id="addRow" class="quiet" type="button">+ Add row</button>
+    <p class="hint">Right side can be anything the page understands: s 40, b 10, pick, open, go home, or plain words like "move base 10". Several commands run one second apart.</p>
+
+    <label>Extra rules and examples (optional)
+      <textarea id="examples" placeholder='"pick up the block" means: go above-left, go at-left, close, go above-left
+"put it down" means: go at-right, open, go above-right
+"go to sleep" means: go home'></textarea>
+    </label>
+
+    <label style="margin-top:18px"><strong>Camera on the gripper</strong></label>
+    <label>Stream URL (from the USB Camera Server app)
+      <input id="streamUrl" type="text" value="http://localhost:8080/stream">
+    </label>
+    <label>Joint that moves the view near/far (usually elbow)
+      <select id="reachJoint"><option value="e">elbow (e)</option><option value="s">shoulder (s)</option><option value="w">wrist (w)</option></select>
+    </label>
+    <label>Command that lowers the gripper one step
+      <input id="descendCmd" type="text" value="s -6">
+    </label>
+    <label>Command that lifts after grabbing
+      <input id="liftCmd" type="text" value="s +25">
+    </label>
+    <label>How big the object should look before grabbing (% of frame width)
+      <input id="grabSize" type="text" value="35" inputmode="numeric">
+    </label>
+    <p class="hint">Test the lower/lift commands by typing them in the main box first - direction depends on how your shoulder is mounted.</p>
+
+    <label>Seconds to wait between moves
+      <input id="delay" type="text" value="2.5" inputmode="decimal">
+    </label>
+
+    <label>Speech language
+      <select id="lang">
+        <option value="en-IN">English (India)</option>
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="hi-IN">Hindi</option>
+        <option value="te-IN">Telugu</option>
+      </select>
+    </label>
+
+    <div class="row">
+      <button id="saveBtn">Save settings</button>
+      <button id="testBtn" class="quiet">Test API key</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="reloadBtn" class="quiet">Reload poses</button>
+    </div>
+    <div class="status" id="settingsStatus"></div>
+  </details>
+</div>
+
+<script>
+window.onerror = (msg, src, line) => {
+  const b = document.getElementById('banner');
+  if (b) { b.textContent = 'Page error (line ' + line + '): ' + msg; b.className = 'show bad'; }
+};
+window.onunhandledrejection = e => {
+  const b = document.getElementById('banner');
+  if (b) { b.textContent = 'Error: ' + (e.reason && e.reason.message || e.reason); b.className = 'show bad'; }
+};
+const $ = id => document.getElementById(id);
+const link = $('link');
+const mic = $('mic');
+const micLabel = $('micLabel');
+const askBtn = $('askBtn');
+const typed = $('typed');
+const heard = $('heard');
+const planSay = $('planSay');
+const planList = $('planList');
+const runBtn = $('runBtn');
+const cancelBtn = $('cancelBtn');
+const log = $('log');
+const apiKey = $('apiKey');
+const model = $('model');
+const descriptions = $('descriptions');
+const examples = $('examples');
+const delay = $('delay');
+const lang = $('lang');
+const saveBtn = $('saveBtn');
+const testBtn = $('testBtn');
+const reloadBtn = $('reloadBtn');
+const poses = $('poses');
+const connectBtn = $('connectBtn');
+const settingsStatus = $('settingsStatus');
+const banner = $('banner');
+const addRow = $('addRow');
+const shortcutRows = $('shortcutRows');
+const cam = $('cam'), camWrap = $('camWrap'), camState = $('camState'), camBtn = $('camBtn'), lookBtn = $('lookBtn');
+const calBtn = $('calBtn'), grabBtn = $('grabBtn'), objectName = $('objectName'), visionStatus = $('visionStatus'), objMark = $('objMark');
+const jawV = $('jawV'), jawH = $('jawH');
+const streamUrl = $('streamUrl'), reachJoint = $('reachJoint'), descendCmd = $('descendCmd'), liftCmd = $('liftCmd'), grabSize = $('grabSize');
+// ============================================================
+//  Settings (kept in this browser)
+// ============================================================
+const S = {
+  get apiKey()       { return localStorage.getItem('aura.apiKey') || ''; },
+  get model()        { return localStorage.getItem('aura.model') || 'claude-sonnet-5'; },
+  get descriptions() { return localStorage.getItem('aura.desc') || ''; },
+  get examples()     { return localStorage.getItem('aura.examples') || ''; },
+  get delay()        { return parseFloat(localStorage.getItem('aura.delay') || '2.5'); },
+  get lang()         { return localStorage.getItem('aura.lang') || 'en-IN'; },
+  get shortcuts()    { try { return JSON.parse(localStorage.getItem('aura.shortcuts') || '[]'); } catch (e) { return []; } },
+  get streamUrl()    { return localStorage.getItem('aura.streamUrl') || 'http://localhost:8080/stream'; },
+  get reachJoint()   { return localStorage.getItem('aura.reachJoint') || 'e'; },
+  get descendCmd()   { return localStorage.getItem('aura.descendCmd') || 's -6'; },
+  get liftCmd()      { return localStorage.getItem('aura.liftCmd') || 's +25'; },
+  get grabSize()     { return parseFloat(localStorage.getItem('aura.grabSize') || '35'); },
+  get calib()        { try { return JSON.parse(localStorage.getItem('aura.calib') || 'null'); } catch (e) { return null; } },
+  get jaw()          { try { return JSON.parse(localStorage.getItem('aura.jaw') || '{"x":50,"y":50}'); } catch (e) { return { x: 50, y: 50 }; } },
+};
+function renderShortcuts(rows) {
+  shortcutRows.innerHTML = '';
+  (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do));
+}
+function addShortcutRow(say = '', does = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" class="say" placeholder="move shoulder up" autocapitalize="none"></td>' +
+                 '<td><input type="text" class="do" placeholder="s 40, b 10" autocapitalize="none"></td>' +
+                 '<td><button type="button" class="x" aria-label="remove">×</button></td>';
+  tr.querySelector('.say').value = say;
+  tr.querySelector('.do').value = does;
+  tr.querySelector('.x').onclick = () => tr.remove();
+  shortcutRows.appendChild(tr);
+}
+function readShortcuts() {
+  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({
+    say: tr.querySelector('.say').value.trim().toLowerCase(),
+    do:  tr.querySelector('.do').value.trim(),
+  })).filter(r => r.say && r.do);
+}
+function loadSettingsUI() {
+  apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions;
+  examples.value = S.examples; delay.value = S.delay; lang.value = S.lang;
+  renderShortcuts(S.shortcuts);
+  streamUrl.value = S.streamUrl; reachJoint.value = S.reachJoint; descendCmd.value = S.descendCmd;
+  liftCmd.value = S.liftCmd; grabSize.value = S.grabSize;
+}
+function saveSettings() {
+  try {
+    localStorage.setItem('aura.apiKey', apiKey.value.trim());
+    localStorage.setItem('aura.model', model.value.trim() || 'claude-sonnet-5');
+    localStorage.setItem('aura.desc', descriptions.value);
+    localStorage.setItem('aura.examples', examples.value);
+    localStorage.setItem('aura.delay', delay.value);
+    localStorage.setItem('aura.lang', lang.value);
+    localStorage.setItem('aura.shortcuts', JSON.stringify(readShortcuts()));
+    localStorage.setItem('aura.streamUrl', streamUrl.value.trim());
+    localStorage.setItem('aura.reachJoint', reachJoint.value);
+    localStorage.setItem('aura.descendCmd', descendCmd.value.trim());
+    localStorage.setItem('aura.liftCmd', liftCmd.value.trim());
+    localStorage.setItem('aura.grabSize', grabSize.value.trim());
+  } catch (e) {
+    settingsStatus.textContent = 'Could not save: this browser is blocking storage (private/incognito mode?).';
+    settingsStatus.classList.add('bad');
+    return;
+  }
+  const hasKey = !!S.apiKey;
+  settingsStatus.textContent = hasKey ? 'Saved. API key stored.' : 'Saved, but the API key is empty.';
+  settingsStatus.classList.toggle('bad', !hasKey);
+  setStatus(hasKey ? 'Settings saved.' : 'Settings saved - but no API key yet.', !hasKey);
+  if (hasKey) setTimeout(() => { document.querySelector('details').open = false; window.scrollTo({ top: 0 }); }, 700);
+}
+try { loadSettingsUI(); } catch (e) {}
+saveBtn.onclick = saveSettings;
+addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
+testBtn.onclick = async () => {
+  const key = apiKey.value.trim();
+  if (!key) { settingsStatus.textContent = 'Paste a key first.'; settingsStatus.classList.add('bad'); return; }
+  settingsStatus.textContent = 'Testing…'; settingsStatus.classList.remove('bad');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
+                 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: model.value.trim() || 'claude-sonnet-5', max_tokens: 10,
+                             messages: [{ role: 'user', content: 'Say OK' }] }),
+    });
+    const body = await r.text();
+    if (r.ok) { settingsStatus.textContent = 'Key works.'; settingsStatus.classList.remove('bad'); }
+    else { settingsStatus.textContent = 'Key rejected (' + r.status + '): ' + body.slice(0, 160); settingsStatus.classList.add('bad'); }
+  } catch (e) { settingsStatus.textContent = 'Could not reach the API: ' + e.message; settingsStatus.classList.add('bad'); }
+};
+
+// ============================================================
+//  Bluetooth (Nordic UART, same as the terminal app)
+// ============================================================
+const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';   // we write here
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';   // arm notifies here
+let device = null, rxChar = null, inbox = '';
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+function setLink(on, text) {
+  link.textContent = text;
+  link.classList.toggle('on', on);
+  mic.disabled = askBtn.disabled = !on;
+  connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM';
+}
+
+async function connect() {
+  if (!navigator.bluetooth) {
+    setStatus('This browser has no Web Bluetooth. On Android use Chrome; on iPhone use the Bluefy app.', true);
+    return;
+  }
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'AURA-ARM' }], optionalServices: [NUS] });
+    device.addEventListener('gattserverdisconnected', () => { setLink(false, 'disconnected'); rxChar = null; });
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    rxChar = await svc.getCharacteristic(NUS_RX);
+    const txChar = await svc.getCharacteristic(NUS_TX);
+    await txChar.startNotifications();
+    txChar.addEventListener('characteristicvaluechanged', e => onArmText(dec.decode(e.target.value)));
+    setLink(true, 'connected');
+    setStatus('');
+    await loadPoses();
+  } catch (e) {
+    setStatus('Could not connect: ' + e.message, true);
+  }
+}
+function disconnect() { if (device && device.gatt.connected) device.gatt.disconnect(); }
+connectBtn.onclick = () => (rxChar ? disconnect() : connect());
+
+async function send(line) {
+  if (!rxChar) throw new Error('not connected');
+  logLine('> ' + line);
+  const bytes = enc.encode(line + '\n');
+  for (let i = 0; i < bytes.length; i += 20) {
+    await rxChar.writeValue(bytes.slice(i, i + 20));
+  }
+}
+
+function onArmText(t) {
+  inbox += t;
+  let nl;
+  while ((nl = inbox.indexOf('\n')) >= 0) {
+    const line = inbox.slice(0, nl); inbox = inbox.slice(nl + 1);
+    if (line.trim()) { logLine(line); poseParser(line); }
+  }
+}
+
+function logLine(s) {
+  const lines = (log.textContent + '\n' + s).split('\n').slice(-60);
+  log.textContent = lines.join('\n');
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================================================
+//  Poses: ask the arm for "list" and read the names back
+// ============================================================
+let poseNames = [];
+let collecting = false;
+function poseParser(line) {
+  if (!collecting) return;
+  const m = line.match(/^\s*([a-z0-9-]+)\s+=\s+[\d,]+/i);
+  if (m && m[1] !== 'saved') poseNames.push(m[1]);
+}
+async function loadPoses() {
+  poseNames = []; collecting = true;
+  await send('list');
+  await sleep(1800);
+  collecting = false;
+  poses.textContent = poseNames.length
+    ? 'Saved poses: ' + poseNames.join(', ')
+    : 'No saved poses on the arm yet. Use the terminal app: drive it somewhere, then "save <name>".';
+}
+reloadBtn.onclick = () => rxChar ? loadPoses() : setStatus('Connect first.', true);
+
+// ============================================================
+//  Speech in
+// ============================================================
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+let listening = false, finalText = '';
+if (SR) {
+  rec = new SR();
+  rec.interimResults = true;
+  rec.continuous = true;
+  rec.onresult = e => {
+    // Android often re-sends the same phrase as a longer final chunk
+    // ("go" then "go home"), so keep only the LAST finished chunk.
+    let interim = '', final = '';
+    for (const r of e.results) (r.isFinal ? (final = r[0].transcript) : (interim += r[0].transcript));
+    finalText = final.trim();
+    showHeard((finalText + ' ' + interim).trim(), false);
+  };
+  rec.onerror = e => { if (e.error !== 'no-speech') setStatus('Microphone: ' + e.error, true); };
+  rec.onend = () => {
+    listening = false;
+    mic.classList.remove('listening'); micLabel.textContent = 'Tap to talk';
+    const t = finalText.trim(); finalText = '';
+    if (t) handleInput(t);
+  };
+} else {
+  micLabel.textContent = 'No mic support here - type instead';
+}
+mic.onclick = () => {
+  if (!rec) return;
+  if (listening) { try { rec.stop(); } catch (e) {} return; }   // second tap = stop
+  finalText = ''; showHeard('', false); setStatus('');
+  rec.lang = S.lang;
+  try { rec.start(); } catch (e) { setStatus('Mic: ' + e.message, true); return; }
+  listening = true;
+  mic.classList.add('listening'); micLabel.textContent = 'Listening… tap to stop';
+};
+
+// Real arm commands go straight to the arm; everything else goes to Claude.
+const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
+
+// "move base 10" -> "b 10",  "elbow up by 15" -> "e +15",  "wrist minus 20" -> "w -20"
+const JOINTS = { base:'b', shoulder:'s', elbow:'e', wrist:'w', roll:'r', gripper:'g' };
+const WORDNUM = { zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10,
+  eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15, sixteen:16, seventeen:17, eighteen:18, nineteen:19,
+  twenty:20, thirty:30, forty:40, fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100 };
+function wordsToDigits(t) {
+  // "one hundred twenty" -> 120, "ninety five" -> 95, "hundred" -> 100
+  return t.replace(/\b((?:one |two )?hundred(?: and)?(?: [a-z]+)?(?: [a-z]+)?|[a-z]+(?: [a-z]+)?)\b/g, m => {
+    const w = m.split(' ').filter(x => x !== 'and'); let n = 0, ok = false;
+    for (const x of w) { if (!(x in WORDNUM)) return m; ok = true; n = x === 'hundred' ? Math.max(n,1) * 100 : n + WORDNUM[x]; }
+    return ok ? String(n) : m;
+  });
+}
+// Joint words plus the ways speech recognition commonly mishears them
+const JOINT_ALIASES = {
+  b: ['base','bass','bays','baize','bez','basis'],
+  s: ['shoulder','soldier','shoulders','showder','solder'],
+  e: ['elbow','elbows','l bow','albo','elbo','el bow'],
+  w: ['wrist','wrists','rest','risk','wrist joint'],
+  r: ['roll','role','rol','rolls','twist','rotate wrist'],
+  g: ['gripper','griper','grippa','gripper joint','claw','jaws','hand'],
+};
+const UP   = /\b(up|plus|add|increase|more|forward|raise|higher|clockwise)\b/;
+const DOWN = /\b(down|minus|reduce|decrease|less|back|lower|backward|anticlockwise|anti clockwise|counter clockwise)\b/;
+
+function parseJointMove(t) {
+  t = wordsToDigits(' ' + t.toLowerCase() + ' ')
+        .replace(/[°º]/g, ' ')
+        .replace(/\b(the|a|to|at|please|arm|joint|by|degrees?|deg|set|move|turn|rotate|go|make|put)\b/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+  let joint = null;
+  outer: for (const [k, words] of Object.entries(JOINT_ALIASES))
+    for (const w of words) if (new RegExp('\\b' + w + '\\b').test(t)) { joint = k; t = t.replace(new RegExp('\\b' + w + '\\b'), ' '); break outer; }
+  if (!joint) return null;
+  const num = t.match(/(-?\d+)/);
+  if (!num) return { joint, error: true };
+  const n = Math.abs(parseInt(num[1], 10));
+  if (DOWN.test(t) || num[1].startsWith('-')) return `${joint} -${n}`;
+  if (UP.test(t))   return `${joint} +${n}`;
+  return `${joint} ${n}`;
+}
+
+// Match what was said against the poses saved on the arm.
+// "pick" -> go pick, "pic" -> go pick, "sheikh pickup" -> go sheikh-pickup, "go pick" -> go pick
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+function matchPose(t) {
+  if (!poseNames.length) return null;
+  let said = t.replace(/^(go|goto|go to|move to|run)\s+/, '').trim();
+  const flat = x => x.replace(/[\s-]+/g, '');
+  const saidFlat = flat(said);
+  let best = null, bestD = 99;
+  for (const n of poseNames) {
+    const d = editDistance(saidFlat, flat(n));
+    if (d < bestD) { bestD = d; best = n; }
+  }
+  const allow = saidFlat.length >= 5 ? 2 : saidFlat.length >= 3 ? 1 : 0;   // short words must be exact
+  return bestD <= allow ? best : null;
+}
+
+askBtn.onclick = () => handleInput(typed.value);
+// Turn one spoken/typed piece into a direct arm command, or null if it needs Claude.
+function resolveDirect(part) {
+  let t = part.trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase();
+  t = t.replace(/\b(\w+)( \1\b)+/g, '$1');            // "base base 10" -> "base 10"
+  if (!t) return null;
+  const pm = matchPose(t);
+  if (pm) return 'go ' + pm;
+  const jm = parseJointMove(t);
+  if (jm && jm.error) return { error: t };
+  if (jm) return jm;
+  return RAW.test(t) ? t : null;
+}
+
+// A shortcut phrase from Settings -> the list of commands on its right side
+function matchShortcut(t) {
+  const rows = S.shortcuts;
+  if (!rows.length) return null;
+  const flat = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const said = flat(t);
+  let best = null, bestD = 99;
+  const nums = x => (x.match(/\d+/g) || []).join(',');
+  for (const r of rows) {
+    if (nums(said) !== nums(r.say)) continue;         // numbers must match exactly
+    const d = editDistance(said, flat(r.say));
+    if (d < bestD) { bestD = d; best = r; }
+  }
+  const allow = said.length >= 8 ? 2 : said.length >= 3 ? 1 : 0;
+  if (!best || bestD > allow) return null;
+  return best.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean);
+}
+
+// One spoken piece -> a list of direct commands (usually one), or null if Claude is needed
+function resolveMany(part) {
+  const sc = matchShortcut(part);
+  if (sc) {
+    const out = [];
+    for (const c of sc) {
+      const r = resolveDirect(c);
+      if (r && !r.error) out.push(r);
+      else out.push(c.trim().toLowerCase());     // send as-is; the arm will say if it's unknown
+    }
+    return out;
+  }
+  const r = resolveDirect(part);
+  if (r === null) return null;
+  if (r.error) return r;
+  return [r];
+}
+
+const GAP_MS = 1000;   // pause between chained commands
+async function handleInput(raw) {
+  logLine('[you] ' + raw);
+  const whole = String(raw).trim();
+  if (!whole) return;
+  showHeard(whole, true);
+
+  // split "move shoulder 40 and base 10, then open" into parts
+  const parts = whole.toLowerCase().split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
+  const resolved = parts.map(resolveMany);
+
+  const bad = resolved.find(c => c && c.error);
+  if (bad) { setStatus('Heard a joint but no number in: "' + bad.error + '"', true); return; }
+
+  if (resolved.every(Boolean)) {
+    const cmds = resolved.flat();
+    if (!rxChar) { setStatus('Not connected to the arm.', true); return; }
+    try {
+      for (let i = 0; i < cmds.length; i++) {
+        await send(cmds[i]);
+        setStatus('Sent: ' + cmds.slice(0, i + 1).join('  ›  '), false, true);
+        if (i < cmds.length - 1) await sleep(GAP_MS);
+      }
+      typed.value = '';
+    } catch (e) { setStatus('Send failed: ' + e.message, true); }
+    return;
+  }
+  const g = whole.toLowerCase().match(/^(?:please )?(?:grab|pick up|pick|get|fetch|take|catch)(?: the| a| an| my| that)? (.+?)\.?$/);
+  if (g && camOn) { objectName.value = g[1]; visionGrab(g[1]); return; }
+  ask(whole);                                       // needs a plan from Claude
+}
+
+function showHeard(text, final) {
+  heard.textContent = text ? (final ? '“' + text + '”' : text) : '';
+  heard.classList.toggle('has', !!text);
+}
+
+// ============================================================
+//  The brain: send speech + pose list to Claude, get a plan
+// ============================================================
+function systemPrompt() {
+  const desc = S.descriptions.trim();
+  return `You control a small 6-servo hobby robot arm by choosing from a fixed list of commands.
+
+ALLOWED COMMANDS (nothing else exists):
+${poseNames.map(n => '  go ' + n).join('\n')}
+  open        (open the gripper)
+  close       (close the gripper)
+
+WHAT EACH POSE MEANS:
+${desc || '(no descriptions given - infer from the names)'}
+
+RULES:
+- Use only the allowed commands above, exactly as written. Never invent poses or angles.
+- To pick something up: go to the "above" pose, then the "at" pose, then close, then back to "above".
+- To put something down: "above" pose, "at" pose, open, back to "above".
+- Every plan ends with: go home
+- If the request is unclear, impossible with these poses, or unsafe, return an empty plan and explain in "say".
+- Keep "say" to one short spoken sentence confirming what you will do.
+${S.examples.trim() ? '\nEXAMPLES FROM THE OWNER:\n' + S.examples.trim() : ''}
+
+Respond with ONLY a JSON object, no markdown, no backticks:
+{"plan": ["go above-left", "close"], "say": "Picking up the block and moving it right."}`;
+}
+
+let plan = [];
+async function ask(text) {
+  if (!S.apiKey) { setStatus('Add your Claude API key in Settings first.', true); return; }
+  if (!poseNames.length) { setStatus('No poses loaded. Save some on the arm, then Reload poses.', true); return; }
+  setStatus('Asking Claude…');
+  hidePlan();
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': S.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: S.model, max_tokens: 500,
+        system: systemPrompt(),
+        messages: [{ role: 'user', content: text }],
+      }),
+    });
+    if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 200));
+    const data = await r.json();
+    const raw = data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
+    const out = JSON.parse(raw);
+    plan = (out.plan || []).filter(isAllowed);
+    const dropped = (out.plan || []).length - plan.length;
+    showPlan(out.say || '', dropped);
+    speak(out.say || '');
+    setStatus(plan.length ? '' : 'Nothing to run.');
+  } catch (e) {
+    setStatus('Could not get a plan: ' + e.message, true);
+  }
+}
+function isAllowed(cmd) {
+  cmd = String(cmd).trim().toLowerCase();
+  if (cmd === 'open' || cmd === 'close') return true;
+  const m = cmd.match(/^go ([a-z0-9-]+)$/);
+  return !!(m && poseNames.includes(m[1]));
+}
+
+// ============================================================
+//  Show the plan, wait for Confirm, then send it step by step
+// ============================================================
+function showPlan(say, dropped) {
+  planSay.textContent = say + (dropped ? `  (${dropped} unknown step${dropped > 1 ? 's' : ''} removed)` : '');
+  planList.innerHTML = '';
+  plan.forEach(c => { const li = document.createElement('li'); li.textContent = c; planList.appendChild(li); });
+  runBtn.disabled = !plan.length;
+  runBtn.textContent = 'Confirm and run';
+  document.getElementById('plan').hidden = false;
+}
+function hidePlan() { document.getElementById('plan').hidden = true; }
+cancelBtn.onclick = () => { running = false; hidePlan(); setStatus('Cancelled.'); };
+
+let running = false;
+runBtn.onclick = async () => {
+  if (running) { running = false; return; }
+  running = true;
+  runBtn.textContent = 'Stop';
+  cancelBtn.disabled = true;
+  const items = [...planList.children];
+  try {
+    for (let i = 0; i < plan.length && running; i++) {
+      items[i].classList.add('now');
+      await send(plan[i]);
+      await sleep(S.delay * 1000);
+      items[i].classList.remove('now'); items[i].classList.add('done');
+    }
+    setStatus(running ? 'Done.' : 'Stopped. Arm is wherever it got to - send "home" if needed.');
+  } catch (e) {
+    setStatus('Stopped: ' + e.message, true);
+  }
+  running = false;
+  runBtn.textContent = 'Run again';
+  cancelBtn.disabled = false;
+};
+
+
+// ============================================================
+//  VISION: camera on the gripper
+// ============================================================
+let camOn = false;
+const W = 64, H = 48;                       // tiny working size for shift detection
+const work = document.createElement('canvas'); work.width = W; work.height = H;
+const snap = document.createElement('canvas');   // full frame for Claude
+
+function vsay(msg, bad) { visionStatus.textContent = msg; visionStatus.style.color = bad ? 'var(--bad)' : 'var(--ink-soft)'; logLine('[vision] ' + msg); }
+function markObject(x, y) { objMark.setAttribute('cx', x); objMark.setAttribute('cy', y); }
+function drawJaw() {
+  const j = S.jaw;
+  jawV.setAttribute('x1', j.x); jawV.setAttribute('x2', j.x); jawV.setAttribute('y1', j.y - 8); jawV.setAttribute('y2', j.y + 8);
+  jawH.setAttribute('y1', j.y); jawH.setAttribute('y2', j.y); jawH.setAttribute('x1', j.x - 8); jawH.setAttribute('x2', j.x + 8);
+}
+// Tap the video to say where the jaw tips are in the picture
+camWrap.addEventListener('click', e => {
+  const r = camWrap.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left) / r.width * 100), y = Math.round((e.clientY - r.top) / r.height * 100);
+  localStorage.setItem('aura.jaw', JSON.stringify({ x, y }));
+  drawJaw();
+  vsay('Jaw point set at ' + x + ',' + y + '%. Objects will be brought here before lowering.');
+});
+drawJaw();
+
+camBtn.onclick = () => camOn ? cameraOff() : cameraOn();
+function cameraOn() {
+  cam.crossOrigin = 'anonymous';
+  cam.onload = () => { camOn = true; camState.textContent = 'live'; camWrap.hidden = false; camBtn.textContent = 'Camera off';
+                       lookBtn.disabled = calBtn.disabled = grabBtn.disabled = false;
+                       vsay(S.calib ? 'Ready. Calibrated.' : 'Ready. Tap Calibrate once before grabbing.'); };
+  cam.onerror = () => { camOn = false; camState.textContent = 'no stream'; vsay('Cannot load the stream. Is the USB Camera Server app running?', true); };
+  cam.src = S.streamUrl + (S.streamUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+}
+function cameraOff() {
+  cam.src = ''; camOn = false; camState.textContent = 'off'; camWrap.hidden = true; camBtn.textContent = 'Camera on';
+  lookBtn.disabled = calBtn.disabled = grabBtn.disabled = true;
+}
+
+// Grayscale 64x48 snapshot for shift detection
+function tinyFrame() {
+  const c = work.getContext('2d', { willReadFrequently: true });
+  c.drawImage(cam, 0, 0, W, H);
+  const d = c.getImageData(0, 0, W, H).data, g = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) g[i] = (d[i*4] * 0.3 + d[i*4+1] * 0.59 + d[i*4+2] * 0.11);
+  return g;
+}
+// JPEG (base64, no prefix) for Claude, 640 wide
+function jpegFrame() {
+  const w = 640, h = Math.round(640 * (cam.naturalHeight || 480) / (cam.naturalWidth || 640));
+  snap.width = w; snap.height = h;
+  snap.getContext('2d').drawImage(cam, 0, 0, w, h);
+  return snap.toDataURL('image/jpeg', 0.7).split(',')[1];
+}
+// How did the scene move between two tiny frames? Brute-force search, returns {dx, dy} in % of frame.
+function sceneShift(a, b) {
+  let best = { dx: 0, dy: 0, err: Infinity };
+  const R = 12;
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    let err = 0, n = 0;
+    for (let y = R; y < H - R; y++) for (let x = R; x < W - R; x++) {
+      const e = a[y * W + x] - b[(y + dy) * W + (x + dx)]; err += e * e; n++;
+    }
+    err /= n;
+    if (err < best.err) best = { dx, dy, err };
+  }
+  return { dx: best.dx * 100 / W, dy: best.dy * 100 / H, err: best.err };
+}
+
+// ---- Calibrate: learn what base and reach nudges do to the picture ----
+const CAL_DEG = 8;
+async function calibrate() {
+  if (!rxChar) { vsay('Connect to the arm first.', true); return; }
+  vsay('Calibrating: hold still…');
+  const rj = S.reachJoint;
+  try {
+    const f0 = tinyFrame();
+    await send('b +' + CAL_DEG); await sleep(1800);
+    const f1 = tinyFrame();
+    const sb = sceneShift(f0, f1);
+    await send('b -' + CAL_DEG); await sleep(1800);
+    const f2 = tinyFrame();
+    await send(rj + ' +' + CAL_DEG); await sleep(1800);
+    const f3 = tinyFrame();
+    const sr = sceneShift(f2, f3);
+    await send(rj + ' -' + CAL_DEG); await sleep(1200);
+    // scene shift per degree, as % of frame
+    const calib = { bx: sb.dx / CAL_DEG, by: sb.dy / CAL_DEG, rx: sr.dx / CAL_DEG, ry: sr.dy / CAL_DEG, rj };
+    const det = calib.bx * calib.ry - calib.by * calib.rx;
+    if (Math.abs(sb.dx) + Math.abs(sb.dy) < 1.5 || Math.abs(sr.dx) + Math.abs(sr.dy) < 1.5 || Math.abs(det) < 1e-4) {
+      vsay('Calibration failed: the picture barely moved. Put a few objects on the table so there is something to see, and try again.', true); return;
+    }
+    localStorage.setItem('aura.calib', JSON.stringify(calib));
+    vsay(`Calibrated. base: ${sb.dx.toFixed(0)},${sb.dy.toFixed(0)}%  ${rj}: ${sr.dx.toFixed(0)},${sr.dy.toFixed(0)}% per ${CAL_DEG}°`);
+  } catch (e) { vsay('Calibration error: ' + e.message, true); }
+}
+calBtn.onclick = calibrate;
+
+// Given where the object is (% from left/top), what base/reach nudge brings it to the centre?
+function nudgeFor(ox, oy) {
+  const c = S.calib; if (!c) return null;
+  const j = S.jaw;
+  const wantX = j.x - ox, wantY = j.y - oy;     // scene must shift so the object lands on the jaw point
+  const det = c.bx * c.ry - c.by * c.rx;
+  let db = ( wantX * c.ry - wantY * c.rx) / det;
+  let dr = (-wantX * c.by + wantY * c.bx) / det;
+  const cap = 10;                                 // never more than 10° per step
+  const m = Math.max(1, Math.abs(db) / cap, Math.abs(dr) / cap);
+  return { db: Math.round(db / m), dr: Math.round(dr / m), rj: c.rj };
+}
+
+// ---- Ask Claude where the object is ----
+async function locate(name) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': S.apiKey, 'anthropic-version': '2023-06-01',
+               'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({
+      model: S.model, max_tokens: 200,
+      system: 'You are the eyes of a small robot arm. The photo comes from a camera mounted on the gripper, looking down. ' +
+              'Respond with ONLY a JSON object, no markdown: {"found": true/false, "x": 0-100, "y": 0-100, "size": 0-100, "note": "short"}. ' +
+              'x and y are the CENTRE of the object as a percentage of the image width and height, measured from the top-left. ' +
+              'size is the object\'s width as a percentage of the image width. If several match, pick the nearest to the centre.',
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpegFrame() } },
+        { type: 'text', text: 'Where is the ' + name + '?' } ] }],
+    }),
+  });
+  if (!r.ok) throw new Error('API ' + r.status);
+  const data = await r.json();
+  const raw = data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
+  return JSON.parse(raw);
+}
+
+// ---- Look: describe the scene (for testing the camera + key) ----
+lookBtn.onclick = async () => {
+  if (!S.apiKey) { vsay('Add your API key in Settings.', true); return; }
+  vsay('Looking…');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': S.apiKey, 'anthropic-version': '2023-06-01',
+                 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: S.model, max_tokens: 150,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: jpegFrame() } },
+          { type: 'text', text: 'In one short sentence, list the objects you can see on the table and roughly where each is.' } ] }] }),
+    });
+    const data = await r.json();
+    const t = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+    vsay(t || ('API ' + r.status)); speak(t);
+  } catch (e) { vsay('Look failed: ' + e.message, true); }
+};
+
+// ---- Grab: the full loop ----
+let grabbing = false;
+grabBtn.onclick = () => grabbing ? (grabbing = false) : visionGrab(objectName.value.trim());
+async function visionGrab(name) {
+  if (!name) { vsay('Type what to grab.', true); return; }
+  if (!rxChar) { vsay('Connect to the arm first.', true); return; }
+  if (!camOn) { vsay('Turn the camera on first.', true); return; }
+  if (!S.calib) { vsay('Tap Calibrate once first.', true); return; }
+  if (!S.apiKey) { vsay('Add your API key in Settings.', true); return; }
+  grabbing = true; grabBtn.textContent = 'Stop';
+  const TOL = 7, MAX_STEPS = 14;
+  let descents = 0;
+  try {
+    for (let step = 1; step <= MAX_STEPS && grabbing; step++) {
+      vsay(`Step ${step}: looking for the ${name}…`);
+      const o = await locate(name);
+      if (!o.found) { vsay(`Can't see the ${name}. ${o.note || ''} Move the arm so it is in view and try again.`, true); break; }
+      markObject(o.x, o.y);
+      const j = S.jaw;
+      const offX = o.x - j.x, offY = o.y - j.y;
+      const centred = Math.abs(offX) <= TOL && Math.abs(offY) <= TOL;
+      if (centred && o.size >= S.grabSize) {
+        vsay(`Over the ${name} and close enough (size ${o.size}%). Tap Grab to close the jaws.`);
+        speak('Ready to grab. Confirm?');
+        grabBtn.textContent = 'Close & lift';
+        grabBtn.onclick = async () => {
+          grabBtn.onclick = () => grabbing ? (grabbing = false) : visionGrab(objectName.value.trim());
+          grabBtn.textContent = 'Grab';
+          await send('close'); await sleep(1200);
+          await send(S.liftCmd); await sleep(1500);
+          await send('go home');
+          vsay('Grabbed and lifted.'); speak('Done');
+        };
+        return;
+      }
+      if (centred) {
+        descents++;
+        vsay(`Centred (size ${o.size}%). Lowering…`);
+        await send(S.descendCmd); await sleep(1500);
+        continue;
+      }
+      const n = nudgeFor(o.x, o.y);
+      vsay(`${name} at ${o.x.toFixed(0)},${o.y.toFixed(0)} → base ${n.db >= 0 ? '+' : ''}${n.db}, ${n.rj} ${n.dr >= 0 ? '+' : ''}${n.dr}`);
+      if (n.db) await send(`b ${n.db >= 0 ? '+' : ''}${n.db}`);
+      if (n.dr) { await sleep(300); await send(`${n.rj} ${n.dr >= 0 ? '+' : ''}${n.dr}`); }
+      await sleep(1500);
+    }
+    if (grabbing) vsay('Gave up after ' + MAX_STEPS + ' steps. Try from a different start position.', true);
+    else vsay('Stopped.');
+  } catch (e) { vsay('Grab failed: ' + e.message, true); }
+  grabbing = false; grabBtn.textContent = 'Grab';
+}
+
+// ============================================================
+//  Small helpers
+// ============================================================
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+let bannerTimer = null;
+const statusEl = document.getElementById('statusLine');
+function setStatus(msg, bad, good) {
+  statusEl.textContent = msg; statusEl.classList.toggle('bad', !!bad);
+  banner.textContent = msg;
+  banner.className = msg ? 'show' + (bad ? ' bad' : good ? ' good' : '') : '';
+  clearTimeout(bannerTimer);
+  if (msg && !bad) bannerTimer = setTimeout(() => { banner.className = ''; }, 4000);
+}
+function speak(text) {
+  if (!text || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = S.lang;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+</script>
+</body>
+</html>
