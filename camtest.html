@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AURA camera test</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #E9EEF2; color: #1B2A41; margin: 0; padding: 14px; max-width: 560px; }
+  h1 { font-size: 20px; margin: 0 0 10px; }
+  input, button { font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #C9D3DC; width: 100%; box-sizing: border-box; margin-top: 8px; }
+  button { background: #1B2A41; color: #fff; border: 0; }
+  img, canvas { width: 100%; background: #000; border-radius: 10px; margin-top: 10px; display: block; }
+  #out { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 14px; background: #fff; padding: 12px; border-radius: 10px; margin-top: 10px; min-height: 3em; }
+  .ok { color: #1E7F5C; font-weight: 600; } .bad { color: #B3261E; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>AURA camera test</h1>
+<p>1. Start the USB Camera Server app and tap Start. 2. Come back here. 3. Tap Test.</p>
+<input id="url" value="http://localhost:8080/stream">
+<button id="go">Test</button>
+<img id="img" alt="stream will appear here">
+<canvas id="cv" hidden></canvas>
+<div id="out">waiting…</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const say = (t, cls) => { $('out').innerHTML += (cls ? `<span class="${cls}">${t}</span>` : t) + '\n'; };
+
+$('go').onclick = async () => {
+  $('out').textContent = '';
+  const url = $('url').value.trim();
+  const img = $('img');
+
+  // Step A: can we DISPLAY the stream?
+  say('A. loading stream from ' + url + ' …');
+  img.crossOrigin = 'anonymous';           // ask politely for pixel access
+  const shown = await new Promise(res => {
+    const t = setTimeout(() => res(false), 8000);
+    img.onload = () => { clearTimeout(t); res(true); };
+    img.onerror = () => { clearTimeout(t); res(false); };
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  });
+  if (!shown) {
+    // retry without crossOrigin - some servers refuse the polite ask but still show video
+    img.crossOrigin = null;
+    const shown2 = await new Promise(res => {
+      const t = setTimeout(() => res(false), 8000);
+      img.onload = () => { clearTimeout(t); res(true); };
+      img.onerror = () => { clearTimeout(t); res(false); };
+      img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    });
+    if (!shown2) { say('   cannot load the stream. Is the app running and streaming? Is the URL right?', 'bad'); return; }
+    say('   stream shows, but only in "display only" mode', 'ok');
+  } else {
+    say('   stream shows', 'ok');
+  }
+
+  // Step B: can we READ the pixels (needed to send frames to Claude)?
+  await new Promise(r => setTimeout(r, 1500));
+  say('B. trying to capture a frame …');
+  const cv = $('cv');
+  cv.width = img.naturalWidth || 640; cv.height = img.naturalHeight || 480;
+  try {
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    const data = cv.toDataURL('image/jpeg', 0.8);
+    say('   frame captured: ' + cv.width + 'x' + cv.height + ', ' + Math.round(data.length * 3 / 4 / 1024) + ' KB', 'ok');
+    cv.hidden = false;
+    say('\nRESULT: this camera route WORKS. We can build on it.', 'ok');
+  } catch (e) {
+    say('   blocked: ' + e.message, 'bad');
+    say('\nRESULT: the stream can be shown but not captured. The app would need to allow cross-origin access (CORS). Try another streaming app, or tell me and we will look at alternatives.', 'bad');
+  }
+
+  // Step C: bonus - does the server offer a single-frame snapshot URL?
+  for (const path of ['/snapshot', '/shot.jpg', '/frame', '/capture', '/photo', '/image']) {
+    try {
+      const base = url.replace(/\/stream.*$/, '');
+      const r = await fetch(base + path, { mode: 'cors' });
+      if (r.ok && (r.headers.get('content-type') || '').startsWith('image/')) { say('C. snapshot endpoint found: ' + base + path, 'ok'); break; }
+    } catch (e) {}
+  }
+};
+</script>
+</body>
+</html>
