@@ -171,9 +171,9 @@
 
     <div class="section">
       <h3>Shortcuts</h3>
-      <p class="hint">What you say on the left, what it does on the right. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence ("command one and command two") and they run one after the other with a longer pause between.</p>
+      <p class="hint">What you say, what it does, and (optionally) what it says when finished. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence and they run one after the other; the reply spoken is the last one's.</p>
       <table id="shortcuts">
-        <thead><tr><th style="width:42%">You say</th><th>It does</th><th></th></tr></thead>
+        <thead><tr><th style="width:30%">You say</th><th style="width:34%">It does</th><th>It replies (optional)</th><th></th></tr></thead>
         <tbody id="shortcutRows"></tbody>
       </table>
       <button id="addRow" style="margin-top:8px">+ Add row</button>
@@ -213,6 +213,14 @@ pick: lowered onto the object, ready to grab"></textarea></label>
         <select id="talk"><option value="1">On</option><option value="0">Off</option></select></label>
     </div>
 
+    <div class="section">
+      <h3>Noise filtering</h3>
+      <label>Minimum confidence to act (0.3 = loose, 0.8 = strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
+      <label>Send unknown sentences to Claude
+        <select id="askUnknown"><option value="1">Yes, if 3+ words and clear</option><option value="0">No - only known phrases</option></select></label>
+      <p class="hint">Words it hears but rejects show faintly with a "?" so you can see what the noise sounds like to it. Raise the confidence if it keeps reacting to background sound; lower it if it ignores you.</p>
+    </div>
+
     <div class="row2" style="margin-top:16px"><button id="saveBtn" class="act">Save settings</button></div>
     <div class="note" id="saveNote"></div>
   </div>
@@ -237,7 +245,7 @@ const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses
 const apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote');
 const shortcutRows = $('shortcutRows'), addRow = $('addRow'), descriptions = $('descriptions'), examples = $('examples');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), planGap = $('planGap'), lang = $('lang'), talk = $('talk');
-const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent');
+const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 
 // ============================================================
 //  Settings
@@ -256,13 +264,15 @@ const S = {
   get wakeWord() { return (LS('wakeWord', 'Robin') || 'Robin').trim(); },
   get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
   get accent() { return LS('accent', 'en-US'); },
+  get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
+  get askUnknown() { return LS('askUnknown', '1') === '1'; },
   get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
 };
 function loadSettingsUI() {
   apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions; examples.value = S.examples;
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; planGap.value = S.planGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
   renderShortcuts(S.shortcuts);
-  wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent;
+  wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
 }
 function saveSettings() {
   try {
@@ -272,22 +282,24 @@ function saveSettings() {
     set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('planGap', planGap.value);
     set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
     set('wakeWord', wakeWord.value.trim() || 'Robin'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
+    set('minConf', minConf.value); set('askUnknown', askUnknown.value);
   } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
   note(saveNote, S.apiKey ? 'Saved.' : 'Saved - but no API key yet, so Claude plans will not work.', S.apiKey ? 'ok' : 'bad');
 }
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
-function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do)); }
-function addShortcutRow(say = '', does = '') {
+function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do, r.reply || '')); }
+function addShortcutRow(say = '', does = '', reply = '') {
   const tr = document.createElement('tr');
   tr.innerHTML = '<td><input type="text" class="say" placeholder="command one" autocapitalize="none"></td>' +
                  '<td><input type="text" class="do" placeholder="b 10, s 90" autocapitalize="none"></td>' +
+                 '<td><input type="text" class="reply" placeholder="Done, boss"></td>' +
                  '<td><button type="button" class="x" aria-label="remove">×</button></td>';
-  tr.querySelector('.say').value = say; tr.querySelector('.do').value = does;
+  tr.querySelector('.say').value = say; tr.querySelector('.do').value = does; tr.querySelector('.reply').value = reply;
   tr.querySelector('.x').onclick = () => tr.remove();
   shortcutRows.appendChild(tr);
 }
 function readShortcuts() {
-  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), do: tr.querySelector('.do').value.trim() })).filter(r => r.say && r.do);
+  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), do: tr.querySelector('.do').value.trim(), reply: tr.querySelector('.reply').value.trim() })).filter(r => r.say && r.do);
 }
 try { loadSettingsUI(); } catch (e) {}
 saveBtn.onclick = saveSettings;
@@ -365,16 +377,43 @@ reloadBtn.onclick = () => rxChar ? loadPoses() : note(poses, 'Connect first.', '
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false, speaking = false, wantRestart = false;
 if (SR) {
-  rec = new SR(); rec.continuous = true; rec.interimResults = true;
+  rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;
   rec.onresult = e => {
-    let interim = '', final = '';
-    for (const r of e.results) (r.isFinal ? (final = r[0].transcript) : (interim += r[0].transcript));
+    let interim = '', finalRes = null;
+    for (const r of e.results) (r.isFinal ? (finalRes = r) : (interim += r[0].transcript));
     if (interim) { setHeard(interim, true); setFace('hearing'); }
-    if (final.trim()) { setHeard(final.trim()); handleInput(final.trim()); }
+    if (finalRes) {
+      const alts = [...finalRes].map(a => ({ text: a.transcript.trim(), conf: a.confidence || 0 })).filter(a => a.text);
+      if (alts.length) onSpeech(alts);
+    }
   };
   rec.onerror = e => { if (!['no-speech', 'aborted'].includes(e.error)) setDoing('Microphone: ' + e.error, true); };
   rec.onend = () => { if (listening && !speaking) setTimeout(startRec, 250); };   // keep it going
 }
+// Which of the engine's guesses (if any) is worth acting on?
+let lastAccepted = { text: '', at: 0 };
+function understood(text) {                        // does this text mean something to us without Claude?
+  const low = text.toLowerCase().replace(/[.!?]+$/, '').trim();
+  if (stripWake(low) !== null) return true;
+  if (/^(stop|halt|wait|cancel|freeze|go to sleep|sleep|good night|goodbye|bye|stop listening|hello|hi|hey|thanks|thank you|who are you|what is your name|what's your name)$/.test(low)) return true;
+  const parts = low.split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
+  return parts.length > 0 && parts.every(p => { const g = resolveGroup(p); return g && !g.error; });
+}
+function onSpeech(alts) {
+  logLine('[heard] ' + alts.map(a => `"${a.text}" ${a.conf.toFixed(2)}`).join(' | '));
+  const min = S.minConf;
+  // 1. prefer any guess that we understand outright (and is not hopelessly unconfident)
+  let pick = alts.find(a => a.conf >= Math.min(min, 0.35) && understood(a.text));
+  // 2. otherwise the top guess, if it is confident enough
+  if (!pick && alts[0].conf >= min) pick = alts[0];
+  if (!pick) { setHeard(alts[0].text + ' ?', true); return; }          // noise, most likely
+  const now = Date.now();
+  if (pick.text.toLowerCase() === lastAccepted.text && now - lastAccepted.at < 2500) return;   // duplicate
+  lastAccepted = { text: pick.text.toLowerCase(), at: now };
+  setHeard(pick.text);
+  handleInput(pick.text, false, pick.conf);
+}
+
 function startRec() { if (!rec || !listening || speaking) return; try { rec.start(); } catch (e) {} }
 let awake = false, awakeTimer = null;
 function goStandby(quiet) {
@@ -483,7 +522,7 @@ function fuzzyPick(said, candidates, keyOf) {
   const allow = s.length >= 8 ? 2 : s.length >= 3 ? 1 : 0;
   return best && bestD <= allow ? best : null;
 }
-function matchShortcut(t) { const r = fuzzyPick(t, S.shortcuts, r => r.say); return r ? r.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean) : null; }
+function matchShortcut(t) { return fuzzyPick(t, S.shortcuts, r => r.say); }   // returns the whole row or null
 function matchPose(t) { const said = t.replace(/^(go|goto|go to|move to|run)\s+/, ''); return fuzzyPick(said, poseNames, n => n); }
 
 // one piece of a sentence -> a direct command string, or {error}, or null (needs Claude)
@@ -497,7 +536,12 @@ function resolveDirect(part) {
 // one piece -> a GROUP of commands (a shortcut expands to several), or null
 function resolveGroup(part) {
   const sc = matchShortcut(part);
-  if (sc) return sc.map(c => { const r = resolveDirect(c); return (r && !r.error) ? r : c.trim().toLowerCase(); });
+  if (sc) {
+    const cmds = sc.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean)
+                      .map(c => { const r = resolveDirect(c); return (r && !r.error) ? r : c.trim().toLowerCase(); });
+    cmds.reply = sc.reply || '';                  // ride along with the group
+    return cmds;
+  }
   const r = resolveDirect(part); if (r === null) return null; if (r.error) return r; return [r];
 }
 
@@ -516,13 +560,16 @@ async function runGroups(groups) {
       }
       if (g < groups.length - 1 && running) { setDoing(`Waiting ${S.groupGap}s before part ${g + 2}…`); await sleep(S.groupGap * 1000); }
     }
-    if (running) { setDoing('Done.'); setFace('happy', 1800); } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
+    if (running) {
+      const reply = [...groups].reverse().map(g => g.reply).find(Boolean);   // last shortcut that has a reply
+      setDoing(reply || 'Done.'); setFace('happy', 1800); if (reply) say(reply);
+    } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
   } catch (e) { setDoing('Send failed: ' + e.message, true); }
   running = false;
 }
 function stopEverything() { running = false; plan.hidden = true; }
 
-async function handleInput(raw, typedIn) {
+async function handleInput(raw, typedIn, conf) {
   logLine('[you] ' + raw);
   let whole = String(raw).trim(); if (!whole) return;
 
@@ -549,6 +596,7 @@ async function handleInput(raw, typedIn) {
   if (/^(hello|hi|hey|hey there|hello there|good morning|good afternoon|good evening|namaste)$/.test(low)) {
     setFace('happy', 2000); setDoing('Hello!'); say(`Hello! I'm ${S.wakeWord}. What can I do for you?`); return;
   }
+  if (running) { setDoing('Still moving - say "stop" to interrupt.'); return; }
   if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your robotic arm.`); return; }
   if (/^(thank you|thanks|good job|well done|nice)$/.test(low)) { setFace('happy', 2000); say(`You're welcome`); return; }
 
@@ -561,6 +609,12 @@ async function handleInput(raw, typedIn) {
     typed.value = '';
     await runGroups(groups);
     return;
+  }
+  // unknown sentence: only worth a Claude call if it is long enough and clearly heard
+  const words = low.split(/\s+/).filter(Boolean).length;
+  if (!typedIn) {
+    if (!S.askUnknown) { setHeard(whole + ' ?', true); return; }
+    if (words < 3 || (conf !== undefined && conf < S.minConf + 0.1)) { setHeard(whole + ' ?', true); return; }
   }
   ask(whole);
 }
