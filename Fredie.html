@@ -71,8 +71,17 @@
   .s-hearing .eye { fill: #9FF0FF; transform: scale(1.12); }
   .s-thinking .eye { fill: var(--eye); transform: scaleY(.85); }
   .s-thinking #eyes { transform: translate(18px, -16px); animation: blink 3s infinite; }
-  .s-moving .eye { fill: var(--eye); transform: scaleY(.55); }
-  .s-moving #eyes { transform: translate(0, 12px); }
+  .s-moving #eyes, .s-moving .mouth { opacity: 0; }
+  #working { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 26px; }
+  .s-moving #working { display: flex; }
+  #working svg { width: 26%; height: auto; fill: none; stroke: var(--act); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  #working svg.small { width: 17%; stroke: var(--eye); }
+  #working .label { position: absolute; bottom: -6px; left: 0; right: 0; text-align: center; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--act); }
+  @media (prefers-reduced-motion: no-preference) {
+    #working svg.big   { animation: spin 3.2s linear infinite; }
+    #working svg.small { animation: spin 2.1s linear infinite reverse; }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .s-happy .eye { fill: var(--eye); transform: scaleY(.28) translateY(-40px); }
   .s-happy .mouth { opacity: 1; stroke: var(--eye); }
   .s-error .eye { fill: var(--act); transform: scaleY(.3) rotate(-6deg); }
@@ -148,6 +157,11 @@
       </g>
       <path class="mouth" d="M 120 150 Q 150 168 180 150"/>
     </svg>
+    <div id="working" aria-hidden="true">
+      <svg class="big" viewBox="0 0 24 24"><path d="M12 2l1.2 2.5 2.7-.6.7 2.7 2.6 1.1-1 2.6 1.9 2-1.9 2 1 2.6-2.6 1.1-.7 2.7-2.7-.6L12 22l-1.2-2.5-2.7.6-.7-2.7-2.6-1.1 1-2.6-1.9-2 1.9-2-1-2.6 2.6-1.1.7-2.7 2.7.6z"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <svg class="small" viewBox="0 0 24 24"><path d="M12 2l1.2 2.5 2.7-.6.7 2.7 2.6 1.1-1 2.6 1.9 2-1.9 2 1 2.6-2.6 1.1-.7 2.7-2.7-.6L12 22l-1.2-2.5-2.7.6-.7-2.7-2.6-1.1 1-2.6-1.9-2 1.9-2-1-2.6 2.6-1.1.7-2.7 2.7.6z"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <div class="label">working</div>
+    </div>
   </div>
 </div>
 
@@ -411,9 +425,10 @@ reloadBtn.onclick = () => rxChar ? loadPoses() : note(poses, 'Connect first.', '
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false, speaking = false, wantRestart = false;
 if (SR) {
-  rec = new SR(); rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 3;   // one utterance per session, then restart (reliable on Android)
+  rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;   // keep the mic open: fewer open/close pops
   rec.onstart = () => { micActive = true; updateEars(); logLine('[mic] open'); };
   rec.onresult = e => {
+    if (speaking || running || Date.now() < ignoreUntil) return;        // deaf while talking or moving (mic stays open, no pop)
     let interim = '', finalRes = null;
     for (const r of e.results) (r.isFinal ? (finalRes = r) : (interim += r[0].transcript));
     if (interim) { setHeard(interim, true); setFace('hearing'); }
@@ -423,7 +438,7 @@ if (SR) {
     }
   };
   rec.onerror = e => { if (!['no-speech', 'aborted'].includes(e.error)) setDoing('Microphone: ' + e.error, true); };
-  rec.onend = () => { micActive = false; updateEars(); logLine('[mic] closed'); if (listening && !speaking && !running) setTimeout(startRec, RESTART_MS); };
+  rec.onend = () => { micActive = false; updateEars(); logLine('[mic] closed'); if (listening) setTimeout(startRec, RESTART_MS); };
 }
 // Wait a beat after a sentence ends in case you are still talking; join what follows onto it.
 const HOLD_MS = 1000;
@@ -479,13 +494,15 @@ function onSpeech(alts) {
   handleInput(pick.text, false, pick.conf === null ? undefined : pick.conf);
 }
 
-let micActive = false;
+let micActive = false, ignoreUntil = 0;
 const RESTART_MS = 400, AFTER_REPLY_MS = 1200;
-function updateEars() { ears.classList.toggle('show', listening && awake && micActive); }
-function startRec() { if (!rec || !listening || speaking || running || micActive) return; try { rec.start(); } catch (e) { logLine('[mic] start failed: ' + e.message); } }
-setInterval(() => { if (listening && !speaking && !running && !micActive) startRec(); }, 3000);   // heartbeat: never stay deaf
-function micPause() { try { rec && rec.abort(); } catch (e) {} micActive = false; updateEars(); }
-function micResume(ms) { setTimeout(startRec, ms || AFTER_REPLY_MS); }
+function updateEars() { ears.classList.toggle('show', listening && awake && micActive && !speaking && !running); }
+function startRec() { if (!rec || !listening || micActive) return; try { rec.start(); } catch (e) { logLine('[mic] start failed: ' + e.message); } }
+setInterval(() => { if (listening && !micActive) startRec(); }, 3000);   // heartbeat: never stay deaf
+// The mic is never closed for speech or motion any more (closing it makes Chrome pop);
+// instead results are ignored while speaking/running and for a short guard afterwards.
+function micPause() { held = null; clearTimeout(holdTimer); updateEars(); }
+function micResume(ms) { ignoreUntil = Date.now() + (ms || AFTER_REPLY_MS); held = null; setTimeout(updateEars, ms || AFTER_REPLY_MS); updateEars(); }
 let awake = false, awakeTimer = null;
 function goStandby(quiet) {
   awake = false; clearTimeout(awakeTimer); updateEars();
@@ -723,10 +740,12 @@ async function handleInput(raw, typedIn, conf) {
   if (!typedIn) {
     const rest = stripWake(whole);
     if (rest !== null) {                              // name was said
+      const justWoke = !awake;
       if (!awake) wakeUp();
       touchAwake();
       whole = rest;
-      if (!whole) { setFace('happy', 1200); say('Hm?'); showToast('Awake'); return; }
+      if (!whole) { setFace('happy', 2500); showToast('Awake'); if (justWoke) say(`I am ${S.wakeWord} and I am ready to rock and roll!`); else say('Yes?'); return; }
+      if (justWoke) { setFace('happy', 1500); say(`I am ${S.wakeWord} and I am ready to rock and roll!`); }
     } else if (!awake) {
       logLine('[ignored] not awake and no "' + S.wakeWord + '" heard');
       if (understood(whole)) showToast(`Say "${S.wakeWord}" first`);   // it was a real command, so tell them
