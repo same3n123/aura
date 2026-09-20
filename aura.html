@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>AURA</title>
+<meta name="theme-color" content="#0B1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AURA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0B1020; --bg2: #121A2E; --panel: #171F35; --line: #26304A;
+    --ink: #E8EEF8; --muted: #8A97B2; --eye: #59E3FF; --eye-dim: #2A6E7C;
+    --act: #FF8A3D; --ok: #4ED4A2; --bad: #FF5C5C;
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Sora", ui-rounded, system-ui, -apple-system, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  button { font: inherit; border: 0; border-radius: 14px; background: var(--panel); color: var(--ink); padding: 12px 16px;
+    touch-action: manipulation; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.act { background: var(--act); color: #1A0D00; font-weight: 600; }
+  button.ghost { background: transparent; color: var(--muted); }
+  input, select, textarea { font: inherit; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg2); color: var(--ink); margin-top: 6px; }
+  textarea { min-height: 84px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; line-height: 1.4; }
+
+  /* ---------- top bar ---------- */
+  #bar { display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--sat)) 14px 10px; background: var(--bg); }
+  #bar h1 { font-size: 18px; margin: 0; letter-spacing: .08em; font-weight: 700; }
+  #pill { font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--panel); color: var(--muted); }
+  #pill.on { background: rgba(78,212,162,.15); color: var(--ok); }
+  #bar .spacer { flex: 1; }
+  #gear { padding: 10px; border-radius: 12px; }
+  #power { padding: 10px 18px; font-weight: 600; min-width: 84px; }
+  #power.on { background: var(--bad); color: #fff; }
+  #power.off { background: var(--ok); color: #05261A; }
+
+  /* ---------- face ---------- */
+  #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 20px; min-height: 0; }
+  #face { width: min(78vw, 360px); aspect-ratio: 3 / 2; position: relative; }
+  #face svg { width: 100%; height: 100%; overflow: visible; }
+  .eye { fill: var(--eye-dim); transition: all .35s cubic-bezier(.4,0,.2,1); transform-box: fill-box; transform-origin: center; }
+  .mouth { fill: none; stroke: var(--eye-dim); stroke-width: 6; stroke-linecap: round; transition: all .35s; opacity: 0; }
+  #eyes { transition: transform .5s cubic-bezier(.4,0,.2,1); }
+  .glow { filter: drop-shadow(0 0 18px rgba(89,227,255,.55)); }
+
+  /* eye states */
+  .s-off .eye { fill: var(--eye-dim); transform: scaleY(.08); }
+  .s-standby .eye { fill: var(--eye-dim); transform: scaleY(.22); }
+  .s-standby #eyes { animation: breathe 4s ease-in-out infinite; }
+  @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
+  .s-listening .eye { fill: var(--eye); }
+  .s-listening #eyes { animation: blink 5.5s infinite, drift 9s ease-in-out infinite; }
+  .s-hearing .eye { fill: #9FF0FF; transform: scale(1.12); }
+  .s-thinking .eye { fill: var(--eye); transform: scaleY(.85); }
+  .s-thinking #eyes { transform: translate(18px, -16px); animation: blink 3s infinite; }
+  .s-moving .eye { fill: var(--eye); transform: scaleY(.55); }
+  .s-moving #eyes { transform: translate(0, 12px); }
+  .s-happy .eye { fill: var(--eye); transform: scaleY(.28) translateY(-40px); }
+  .s-happy .mouth { opacity: 1; stroke: var(--eye); }
+  .s-error .eye { fill: var(--act); transform: scaleY(.3) rotate(-6deg); }
+  .s-error .mouth { opacity: 1; stroke: var(--act); d: path("M 120 150 Q 150 138 180 150"); }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.06); } }
+  @keyframes drift { 0%, 100% { translate: 0 0; } 30% { translate: 8px -4px; } 65% { translate: -7px 3px; } }
+  @media (prefers-reduced-motion: reduce) { #eyes { animation: none !important; } }
+
+  #heard { margin-top: 18px; font-size: 20px; text-align: center; min-height: 1.4em; max-width: 90vw; line-height: 1.35; }
+  #heard.interim { color: var(--muted); }
+  #doing { margin-top: 8px; font-size: 14px; color: var(--muted); text-align: center; min-height: 1.3em; max-width: 90vw; }
+  #doing.bad { color: var(--bad); }
+
+  /* ---------- plan card ---------- */
+  #plan { width: min(92vw, 440px); background: var(--panel); border-radius: 16px; padding: 14px; margin-top: 16px; }
+  #plan p { margin: 0 0 6px; color: var(--muted); font-size: 14px; }
+  #plan ol { margin: 0; padding-left: 22px; font-size: 16px; }
+  #plan li.done { color: var(--muted); text-decoration: line-through; }
+  #plan li.now { color: var(--act); font-weight: 600; }
+  #plan .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+  /* ---------- bottom ---------- */
+  #bottom { padding: 8px 14px calc(12px + var(--sab)); display: flex; gap: 8px; align-items: center; }
+  #bottom input { margin: 0; flex: 1; }
+  #logBtn { padding: 12px; color: var(--muted); }
+
+  /* ---------- sheets ---------- */
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; top: 0; background: var(--bg); transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 20; display: flex; flex-direction: column; }
+  .sheet.open { transform: translateY(0); }
+  .sheet header { display: flex; align-items: center; gap: 10px; padding: calc(12px + var(--sat)) 14px 12px; border-bottom: 1px solid var(--line); }
+  .sheet header h2 { font-size: 17px; margin: 0; flex: 1; }
+  .sheet .body { flex: 1; overflow: auto; padding: 4px 16px calc(24px + var(--sab)); }
+  .section { border-bottom: 1px solid var(--line); padding: 8px 0 18px; }
+  .section h3 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  #shortcuts { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  #shortcuts th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
+  #shortcuts td { padding: 3px 2px; }
+  #shortcuts input { margin: 0; padding: 9px; font-size: 14px; }
+  #shortcuts .x { width: 34px; padding: 9px 0; background: transparent; color: var(--muted); font-size: 18px; }
+  .note { font-size: 13px; margin-top: 8px; min-height: 1.3em; color: var(--muted); }
+  .note.bad { color: var(--bad); } .note.ok { color: var(--ok); }
+  #log { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; white-space: pre-wrap; color: var(--muted); margin: 0; padding: 12px 16px; }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <h1>AURA</h1>
+  <span id="pill">not connected</span>
+  <span class="spacer"></span>
+  <button id="gear" class="ghost" aria-label="Settings">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+  <button id="power" class="off">Start</button>
+</div>
+
+<div id="stage">
+  <div id="face" class="s-off">
+    <svg viewBox="0 0 300 200" aria-hidden="true">
+      <g id="eyes" class="glow">
+        <rect class="eye" x="70" y="55" width="60" height="80" rx="24"/>
+        <rect class="eye" x="170" y="55" width="60" height="80" rx="24"/>
+      </g>
+      <path class="mouth" d="M 120 150 Q 150 168 180 150"/>
+    </svg>
+  </div>
+  <div id="heard"></div>
+  <div id="doing">Tap Start to begin listening</div>
+  <div id="plan" hidden>
+    <p id="planSay"></p>
+    <ol id="planList"></ol>
+  </div>
+</div>
+
+<div id="bottom">
+  <input id="typed" type="text" placeholder="or type a command" autocomplete="off" autocapitalize="none">
+  <button id="askBtn">Send</button>
+  <button id="logBtn" class="ghost" aria-label="Log">≡</button>
+</div>
+
+<!-- ---------- settings sheet ---------- -->
+<div id="settings" class="sheet">
+  <header><h2>Settings</h2><button id="closeSettings" class="ghost">Done</button></header>
+  <div class="body">
+
+    <div class="section">
+      <h3>Arm</h3>
+      <div class="row2">
+        <button id="connectBtn" class="act">Connect to AURA-ARM</button>
+        <button id="reloadBtn">Reload poses</button>
+      </div>
+      <div class="note" id="poses">Connect to load the saved poses.</div>
+    </div>
+
+    <div class="section">
+      <h3>Claude</h3>
+      <label>API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
+      <label>Model<input id="model" type="text" value="claude-sonnet-5"></label>
+      <div class="row2"><button id="testBtn">Test key</button></div>
+      <div class="note" id="keyNote"></div>
+    </div>
+
+    <div class="section">
+      <h3>Shortcuts</h3>
+      <p class="hint">What you say on the left, what it does on the right. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence ("command one and command two") and they run one after the other with a longer pause between.</p>
+      <table id="shortcuts">
+        <thead><tr><th style="width:42%">You say</th><th>It does</th><th></th></tr></thead>
+        <tbody id="shortcutRows"></tbody>
+      </table>
+      <button id="addRow" style="margin-top:8px">+ Add row</button>
+    </div>
+
+    <div class="section">
+      <h3>Teach Claude</h3>
+      <label>What each saved pose means (name: description)
+        <textarea id="descriptions" placeholder="home: resting position, gripper open
+pick: lowered onto the object, ready to grab"></textarea></label>
+      <label>Extra rules and examples
+        <textarea id="examples" placeholder='"put it away" means: go drop, open, go home'></textarea></label>
+    </div>
+
+    <div class="section">
+      <h3>Timing</h3>
+      <label>Seconds between commands inside one shortcut<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
+      <label>Seconds between shortcuts said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
+      <label>Seconds between steps of a Claude plan<input id="planGap" type="text" value="2.5" inputmode="decimal"></label>
+    </div>
+
+    <div class="section">
+      <h3>Name and voice</h3>
+      <label>The arm's name (say it to wake it up)<input id="wakeWord" type="text" value="Robin" autocapitalize="words"></label>
+      <label>Seconds it stays awake after the last command<input id="awakeSecs" type="text" value="30" inputmode="numeric"></label>
+      <label>Accent for spoken replies
+        <select id="accent">
+          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option>
+          <option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option>
+        </select></label>
+      <label>Language it listens for
+        <select id="lang">
+          <option value="en-IN">English (India)</option><option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option>
+        </select></label>
+      <label>Spoken replies
+        <select id="talk"><option value="1">On</option><option value="0">Off</option></select></label>
+    </div>
+
+    <div class="row2" style="margin-top:16px"><button id="saveBtn" class="act">Save settings</button></div>
+    <div class="note" id="saveNote"></div>
+  </div>
+</div>
+
+<!-- ---------- log sheet ---------- -->
+<div id="logSheet" class="sheet">
+  <header><h2>Arm log</h2><button id="closeLog" class="ghost">Done</button></header>
+  <div class="body"><pre id="log">arm replies show here</pre></div>
+</div>
+
+<script>
+window.onerror = (m, s, l) => setDoing('Page error (line ' + l + '): ' + m, true);
+window.onunhandledrejection = e => setDoing('Error: ' + (e.reason && e.reason.message || e.reason), true);
+
+const $ = id => document.getElementById(id);
+const pill = $('pill'), gear = $('gear'), power = $('power'), face = $('face'), heard = $('heard'), doing = $('doing');
+const plan = $('plan'), planSay = $('planSay'), planList = $('planList');
+const typed = $('typed'), askBtn = $('askBtn'), logBtn = $('logBtn'), log = $('log');
+const settings = $('settings'), closeSettings = $('closeSettings'), logSheet = $('logSheet'), closeLog = $('closeLog');
+const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
+const apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote');
+const shortcutRows = $('shortcutRows'), addRow = $('addRow'), descriptions = $('descriptions'), examples = $('examples');
+const stepGap = $('stepGap'), groupGap = $('groupGap'), planGap = $('planGap'), lang = $('lang'), talk = $('talk');
+const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent');
+
+// ============================================================
+//  Settings
+// ============================================================
+const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
+const S = {
+  get apiKey() { return LS('apiKey', ''); },
+  get model() { return LS('model', 'claude-sonnet-5'); },
+  get descriptions() { return LS('desc', ''); },
+  get examples() { return LS('examples', ''); },
+  get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
+  get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
+  get planGap() { return parseFloat(LS('planGap', '2.5')) || 2.5; },
+  get lang() { return LS('lang', 'en-IN'); },
+  get talk() { return LS('talk', '1') === '1'; },
+  get wakeWord() { return (LS('wakeWord', 'Robin') || 'Robin').trim(); },
+  get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
+  get accent() { return LS('accent', 'en-US'); },
+  get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
+};
+function loadSettingsUI() {
+  apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions; examples.value = S.examples;
+  stepGap.value = S.stepGap; groupGap.value = S.groupGap; planGap.value = S.planGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
+  renderShortcuts(S.shortcuts);
+  wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent;
+}
+function saveSettings() {
+  try {
+    const set = (k, v) => localStorage.setItem('aura.' + k, v);
+    set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
+    set('desc', descriptions.value); set('examples', examples.value);
+    set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('planGap', planGap.value);
+    set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
+    set('wakeWord', wakeWord.value.trim() || 'Robin'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
+  } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
+  note(saveNote, S.apiKey ? 'Saved.' : 'Saved - but no API key yet, so Claude plans will not work.', S.apiKey ? 'ok' : 'bad');
+}
+function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
+function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do)); }
+function addShortcutRow(say = '', does = '') {
+  const tr = document.createElement('tr');
+  tr.innerHTML = '<td><input type="text" class="say" placeholder="command one" autocapitalize="none"></td>' +
+                 '<td><input type="text" class="do" placeholder="b 10, s 90" autocapitalize="none"></td>' +
+                 '<td><button type="button" class="x" aria-label="remove">×</button></td>';
+  tr.querySelector('.say').value = say; tr.querySelector('.do').value = does;
+  tr.querySelector('.x').onclick = () => tr.remove();
+  shortcutRows.appendChild(tr);
+}
+function readShortcuts() {
+  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), do: tr.querySelector('.do').value.trim() })).filter(r => r.say && r.do);
+}
+try { loadSettingsUI(); } catch (e) {}
+saveBtn.onclick = saveSettings;
+addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
+gear.onclick = () => { if (!listening) settings.classList.add('open'); };
+closeSettings.onclick = () => settings.classList.remove('open');
+logBtn.onclick = () => logSheet.classList.add('open');
+closeLog.onclick = () => logSheet.classList.remove('open');
+
+testBtn.onclick = async () => {
+  const key = apiKey.value.trim(); if (!key) { note(keyNote, 'Paste a key first.', 'bad'); return; }
+  note(keyNote, 'Testing…');
+  try {
+    const r = await claude({ key, max_tokens: 10, messages: [{ role: 'user', content: 'Say OK' }] }, true);
+    note(keyNote, r.ok ? 'Key works.' : 'Rejected (' + r.status + '): ' + r.body.slice(0, 140), r.ok ? 'ok' : 'bad');
+  } catch (e) { note(keyNote, 'Could not reach the API: ' + e.message, 'bad'); }
+};
+
+// ============================================================
+//  Face + status
+// ============================================================
+let faceTimer = null;
+function setFace(state, revertMs) {
+  face.className = 's-' + state;
+  clearTimeout(faceTimer);
+  if (revertMs) faceTimer = setTimeout(() => setFace(!listening ? 'off' : awake ? 'listening' : 'standby'), revertMs);
+}
+function setHeard(text, interim) { heard.textContent = text; heard.classList.toggle('interim', !!interim); }
+function setDoing(text, bad) { doing.textContent = text || ''; doing.classList.toggle('bad', !!bad); if (bad) setFace('error', 2500); }
+function logLine(s) { const lines = (log.textContent + '\n' + s).split('\n').slice(-120); log.textContent = lines.join('\n'); log.scrollTop = log.scrollHeight; }
+
+// ============================================================
+//  Bluetooth
+// ============================================================
+const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e', NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e', NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+let device = null, rxChar = null, inbox = '';
+const enc = new TextEncoder(), dec = new TextDecoder();
+function setLink(on, text) { pill.textContent = text; pill.classList.toggle('on', on); connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM'; }
+async function connect() {
+  if (!navigator.bluetooth) { note(poses, 'No Web Bluetooth here. Use Chrome on Android, or Bluefy on iPhone.', 'bad'); return; }
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ name: 'AURA-ARM' }], optionalServices: [NUS] });
+    device.addEventListener('gattserverdisconnected', () => { setLink(false, 'disconnected'); rxChar = null; });
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    rxChar = await svc.getCharacteristic(NUS_RX);
+    const tx = await svc.getCharacteristic(NUS_TX);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', e => onArmText(dec.decode(e.target.value)));
+    setLink(true, 'connected'); await loadPoses();
+  } catch (e) { note(poses, 'Could not connect: ' + e.message, 'bad'); }
+}
+connectBtn.onclick = () => rxChar ? device.gatt.disconnect() : connect();
+async function send(line) {
+  if (!rxChar) throw new Error('not connected to the arm');
+  logLine('> ' + line);
+  const bytes = enc.encode(line + '\n');
+  for (let i = 0; i < bytes.length; i += 20) await rxChar.writeValue(bytes.slice(i, i + 20));
+}
+function onArmText(t) {
+  inbox += t; let nl;
+  while ((nl = inbox.indexOf('\n')) >= 0) { const line = inbox.slice(0, nl); inbox = inbox.slice(nl + 1); if (line.trim()) { logLine(line); poseParser(line); } }
+}
+let poseNames = [], collecting = false;
+function poseParser(line) { if (!collecting) return; const m = line.match(/^\s*([a-z0-9-]+)\s+=\s+[\d,]+/i); if (m && m[1] !== 'saved') poseNames.push(m[1]); }
+async function loadPoses() {
+  poseNames = []; collecting = true; await send('list'); await sleep(1800); collecting = false;
+  note(poses, poseNames.length ? 'Saved poses: ' + poseNames.join(', ') : 'No saved poses on the arm yet.', poseNames.length ? 'ok' : '');
+}
+reloadBtn.onclick = () => rxChar ? loadPoses() : note(poses, 'Connect first.', 'bad');
+
+// ============================================================
+//  Speech: hands-free listening + spoken replies
+// ============================================================
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false, speaking = false, wantRestart = false;
+if (SR) {
+  rec = new SR(); rec.continuous = true; rec.interimResults = true;
+  rec.onresult = e => {
+    let interim = '', final = '';
+    for (const r of e.results) (r.isFinal ? (final = r[0].transcript) : (interim += r[0].transcript));
+    if (interim) { setHeard(interim, true); setFace('hearing'); }
+    if (final.trim()) { setHeard(final.trim()); handleInput(final.trim()); }
+  };
+  rec.onerror = e => { if (!['no-speech', 'aborted'].includes(e.error)) setDoing('Microphone: ' + e.error, true); };
+  rec.onend = () => { if (listening && !speaking) setTimeout(startRec, 250); };   // keep it going
+}
+function startRec() { if (!rec || !listening || speaking) return; try { rec.start(); } catch (e) {} }
+let awake = false, awakeTimer = null;
+function goStandby(quiet) {
+  awake = false; clearTimeout(awakeTimer);
+  if (listening) { setFace('standby'); setDoing(`Say "${S.wakeWord}" to wake me`); if (!quiet) say('Going to sleep'); }
+}
+function wakeUp() {
+  awake = true; setFace('listening'); setDoing('Awake. What should I do?'); touchAwake();
+}
+function touchAwake() { clearTimeout(awakeTimer); awakeTimer = setTimeout(() => goStandby(true), S.awakeSecs * 1000); }
+
+// Does this sentence start with (or contain) the name? Tolerates small mishearings.
+function stripWake(text) {
+  const name = flat(S.wakeWord); const words = text.split(/\s+/);
+  for (let i = 0; i < Math.min(words.length, 3); i++) {              // name should be near the start
+    const w = flat(words[i]); if (!w) continue;
+    if (w === name || (name.length >= 4 && editDistance(w, name) <= 1)) {
+      return words.slice(i + 1).join(' ').replace(/^[,.!?\s]+/, '');
+    }
+  }
+  return null;
+}
+
+function startListening() {
+  if (!rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
+  listening = true; rec.lang = S.lang; startRec();
+  power.textContent = 'Stop'; power.className = 'on'; gear.disabled = true; settings.classList.remove('open');
+  setHeard(''); goStandby(true);
+}
+function stopListening() {
+  listening = false; awake = false; clearTimeout(awakeTimer); try { rec && rec.stop(); } catch (e) {}
+  power.textContent = 'Start'; power.className = 'off'; gear.disabled = false;
+  setFace('off'); setDoing('Stopped. Tap Start to listen again.');
+}
+power.onclick = () => listening ? stopListening() : startListening();
+
+let voices = [];
+function refreshVoices() { try { voices = speechSynthesis.getVoices() || []; } catch (e) {} }
+if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged = refreshVoices; }
+function pickVoice() {
+  const want = S.accent.toLowerCase();
+  const cands = voices.filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith(want));
+  return cands.find(v => /google/i.test(v.name)) || cands.find(v => /natural|neural|premium/i.test(v.name)) || cands[0] || null;
+}
+function say(text) {
+  if (!text || !S.talk || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(text); u.lang = S.accent;
+  const v = pickVoice(); if (v) u.voice = v;
+  // pause the mic while talking so we do not hear ourselves
+  u.onstart = () => { speaking = true; try { rec && rec.stop(); } catch (e) {} };
+  u.onend = u.onerror = () => { speaking = false; setTimeout(startRec, 300); };
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+// ============================================================
+//  Understanding what was said
+// ============================================================
+const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
+const JOINT_ALIASES = { b: ['base','bass','bays','basis'], s: ['shoulder','soldier','shoulders','solder'], e: ['elbow','elbows','l bow','albo'],
+  w: ['wrist','wrists','rest','risk'], r: ['roll','role','rol','twist'], g: ['gripper','griper','claw','jaws','hand'] };
+const UP = /\b(up|plus|add|increase|more|forward|raise|higher|clockwise)\b/, DOWN = /\b(down|minus|reduce|decrease|less|back|lower|backward|anticlockwise|counter clockwise)\b/;
+const WORDNUM = { zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,
+  sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,hundred:100 };
+function wordsToDigits(t) {
+  // walk word by word; turn runs of number words into digits ("one hundred twenty" -> 120, "command one" -> "command 1")
+  const words = t.split(/\s+/), out = []; let run = [], val = 0;
+  const flush = () => { if (run.length) out.push(String(val)); run = []; val = 0; };
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    if (lw in WORDNUM) { run.push(lw); val = lw === 'hundred' ? Math.max(val, 1) * 100 : val + WORDNUM[lw]; }
+    else if (lw === 'and' && run.length && run.includes('hundred')) { /* "hundred and twenty" */ }
+    else { flush(); out.push(w); }
+  }
+  flush();
+  return out.join(' ');
+}
+function parseJointMove(t) {
+  t = wordsToDigits(' ' + t + ' ').replace(/[°º]/g, ' ')
+       .replace(/\b(the|a|to|at|please|arm|joint|by|degrees?|deg|set|move|turn|rotate|go|make|put)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  let joint = null;
+  outer: for (const [k, words] of Object.entries(JOINT_ALIASES)) for (const w of words) {
+    const re = new RegExp('\\b' + w + '\\b'); if (re.test(t)) { joint = k; t = t.replace(re, ' '); break outer; } }
+  if (!joint) return null;
+  const num = t.match(/(-?\d+)/); if (!num) return { error: true };
+  const n = Math.abs(parseInt(num[1], 10));
+  if (DOWN.test(t) || num[1].startsWith('-')) return `${joint} -${n}`;
+  if (UP.test(t)) return `${joint} +${n}`;
+  return `${joint} ${n}`;
+}
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const flat = x => x.toLowerCase().replace(/[^a-z0-9]+/g, '');
+function fuzzyPick(said, candidates, keyOf) {
+  said = wordsToDigits(' ' + said.toLowerCase() + ' ').trim();          // "command one" == "command 1"
+  const s = flat(said); let best = null, bestD = 99;
+  const nums = x => (x.match(/\d+/g) || []).join(',');
+  for (const c of candidates) {
+    const k = wordsToDigits(' ' + keyOf(c).toLowerCase() + ' ').trim();
+    if (nums(said) !== nums(k)) continue;
+    const d = editDistance(s, flat(k)); if (d < bestD) { bestD = d; best = c; }
+  }
+  const allow = s.length >= 8 ? 2 : s.length >= 3 ? 1 : 0;
+  return best && bestD <= allow ? best : null;
+}
+function matchShortcut(t) { const r = fuzzyPick(t, S.shortcuts, r => r.say); return r ? r.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean) : null; }
+function matchPose(t) { const said = t.replace(/^(go|goto|go to|move to|run)\s+/, ''); return fuzzyPick(said, poseNames, n => n); }
+
+// one piece of a sentence -> a direct command string, or {error}, or null (needs Claude)
+function resolveDirect(part) {
+  let t = part.trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase().replace(/\b(\w+)( \1\b)+/g, '$1');
+  if (!t) return null;
+  const pm = matchPose(t); if (pm) return 'go ' + pm;
+  const jm = parseJointMove(t); if (jm && jm.error) return { error: t }; if (jm) return jm;
+  return RAW.test(t) ? t : null;
+}
+// one piece -> a GROUP of commands (a shortcut expands to several), or null
+function resolveGroup(part) {
+  const sc = matchShortcut(part);
+  if (sc) return sc.map(c => { const r = resolveDirect(c); return (r && !r.error) ? r : c.trim().toLowerCase(); });
+  const r = resolveDirect(part); if (r === null) return null; if (r.error) return r; return [r];
+}
+
+// ============================================================
+//  Executing
+// ============================================================
+let running = false;
+async function runGroups(groups) {
+  running = true; setFace('moving');
+  try {
+    for (let g = 0; g < groups.length && running; g++) {
+      for (let i = 0; i < groups[g].length && running; i++) {
+        await send(groups[g][i]);
+        setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  ') + (i < groups[g].length - 1 ? '' : ''));
+        if (i < groups[g].length - 1) await sleep(S.stepGap * 1000);
+      }
+      if (g < groups.length - 1 && running) { setDoing(`Waiting ${S.groupGap}s before part ${g + 2}…`); await sleep(S.groupGap * 1000); }
+    }
+    if (running) { setDoing('Done.'); setFace('happy', 1800); } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
+  } catch (e) { setDoing('Send failed: ' + e.message, true); }
+  running = false;
+}
+function stopEverything() { running = false; plan.hidden = true; }
+
+async function handleInput(raw, typedIn) {
+  logLine('[you] ' + raw);
+  let whole = String(raw).trim(); if (!whole) return;
+
+  // ---- wake word: spoken input only counts when awake, or when it starts with the name ----
+  if (!typedIn) {
+    const rest = stripWake(whole);
+    if (rest !== null) {                              // name was said
+      if (!awake) wakeUp();
+      touchAwake();
+      whole = rest;
+      if (!whole) { setFace('happy', 1200); say('Yes?'); return; }
+    } else if (!awake) {
+      return;                                          // not talking to us
+    } else {
+      touchAwake();
+    }
+  }
+  const low = whole.toLowerCase().replace(/[.!?]+$/, '').trim();
+
+  // ---- small talk and control words ----
+  if (/^(stop|halt|wait|cancel|freeze)$/.test(low)) { if (running) { stopEverything(); setDoing('Stopped.'); say('Stopped'); } return; }
+  if (/^(go to sleep|sleep|good night|goodbye|bye)$/.test(low)) { goStandby(); return; }
+  if (/^(stop listening|switch off|shut down)$/.test(low)) { say('Stopping'); stopListening(); return; }
+  if (/^(hello|hi|hey|hey there|hello there|good morning|good afternoon|good evening|namaste)$/.test(low)) {
+    setFace('happy', 2000); setDoing('Hello!'); say(`Hello! I'm ${S.wakeWord}. What can I do for you?`); return;
+  }
+  if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your robotic arm.`); return; }
+  if (/^(thank you|thanks|good job|well done|nice)$/.test(low)) { setFace('happy', 2000); say(`You're welcome`); return; }
+
+  const parts = low.split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
+  const groups = parts.map(resolveGroup);
+  const bad = groups.find(g => g && g.error);
+  if (bad) { setDoing(`Heard a joint but no number in "${bad.error}"`, true); say('Which number?'); return; }
+  if (groups.every(Boolean)) {
+    if (!rxChar) { setDoing('Not connected to the arm. Open Settings to connect.', true); say('Not connected'); return; }
+    typed.value = '';
+    await runGroups(groups);
+    return;
+  }
+  ask(whole);
+}
+askBtn.onclick = () => handleInput(typed.value, true);
+typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
+
+// ============================================================
+//  Claude: plans from plain English
+// ============================================================
+async function claude(opts, raw) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': opts.key || S.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: S.model, max_tokens: opts.max_tokens || 500, system: opts.system, messages: opts.messages }),
+  });
+  if (raw) return { ok: r.ok, status: r.status, body: await r.text() };
+  if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 160));
+  const data = await r.json();
+  return data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
+}
+function systemPrompt() {
+  return `You control a small 6-servo hobby robot arm by choosing from a fixed list of commands.
+
+ALLOWED COMMANDS (nothing else exists):
+${poseNames.map(n => '  go ' + n).join('\n')}
+  open        (open the gripper)
+  close       (close the gripper)
+
+WHAT EACH POSE MEANS:
+${S.descriptions.trim() || '(no descriptions given - infer from the names)'}
+
+RULES:
+- Use only the allowed commands above, exactly as written. Never invent poses or angles.
+- To pick something up: go to the "above" pose, then the "at" pose, then close, then back to "above".
+- To put something down: "above" pose, "at" pose, open, back to "above".
+- Every plan ends with: go home
+- If the request is unclear, impossible with these poses, or unsafe, return an empty plan and explain in "say".
+- Keep "say" to one short spoken sentence confirming what you will do.
+${S.examples.trim() ? '\nEXAMPLES FROM THE OWNER:\n' + S.examples.trim() : ''}
+
+Respond with ONLY a JSON object, no markdown, no backticks:
+{"plan": ["go above-left", "close"], "say": "Picking up the block and moving it right."}`;
+}
+function isAllowed(cmd) { cmd = String(cmd).trim().toLowerCase(); if (cmd === 'open' || cmd === 'close') return true; const m = cmd.match(/^go ([a-z0-9-]+)$/); return !!(m && poseNames.includes(m[1])); }
+
+async function ask(text) {
+  if (!S.apiKey) { setDoing('Add your Claude API key in Settings first.', true); say('I need an API key first'); return; }
+  if (!poseNames.length) { setDoing('No poses loaded from the arm. Connect, then Reload poses.', true); say('I do not know any poses yet'); return; }
+  setFace('thinking'); setDoing('Thinking…');
+  let steps = [], what = '';
+  try {
+    const out = JSON.parse(await claude({ system: systemPrompt(), messages: [{ role: 'user', content: text }] }));
+    steps = (out.plan || []).filter(isAllowed); what = out.say || '';
+  } catch (e) { logLine('[claude error] ' + e.message); }
+  if (!steps.length) { setDoing(what || "Sorry, I didn't understand that."); say("Sorry, I didn't understand that"); setFace(awake ? 'listening' : 'standby'); return; }
+  if (!rxChar) { setDoing('Not connected to the arm.', true); say('Not connected'); return; }
+  planSay.textContent = what;
+  planList.innerHTML = ''; steps.forEach(c => { const li = document.createElement('li'); li.textContent = c; planList.appendChild(li); });
+  plan.hidden = false;
+  say(what);
+  running = true; setFace('moving');
+  const items = [...planList.children];
+  try {
+    for (let i = 0; i < steps.length && running; i++) {
+      items[i].classList.add('now'); await send(steps[i]); await sleep(S.planGap * 1000);
+      items[i].classList.remove('now'); items[i].classList.add('done');
+    }
+    setDoing(running ? 'Done.' : 'Stopped.'); if (running) { setFace('happy', 1800); say('Done'); }
+  } catch (e) { setDoing('Stopped: ' + e.message, true); }
+  running = false; setTimeout(() => { plan.hidden = true; }, 2000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
