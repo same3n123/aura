@@ -350,7 +350,7 @@ closeLog.onclick = () => logSheet.classList.remove('open');
 let faceTimer = null;
 function setFace(state, revertMs) {
   face.className = 's-' + state;
-  ears.classList.toggle('show', listening && awake && state !== 'off' && state !== 'standby');
+  updateEars();
   clearTimeout(faceTimer);
   if (revertMs) faceTimer = setTimeout(() => setFace(!listening ? 'off' : awake ? 'listening' : 'standby'), revertMs);
 }
@@ -404,18 +404,19 @@ reloadBtn.onclick = () => rxChar ? loadPoses() : note(poses, 'Connect first.', '
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false, speaking = false, wantRestart = false;
 if (SR) {
-  rec = new SR(); rec.continuous = true; rec.interimResults = true; rec.maxAlternatives = 3;
+  rec = new SR(); rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 3;   // one utterance per session, then restart (reliable on Android)
+  rec.onstart = () => { micActive = true; updateEars(); logLine('[mic] open'); };
   rec.onresult = e => {
     let interim = '', finalRes = null;
     for (const r of e.results) (r.isFinal ? (finalRes = r) : (interim += r[0].transcript));
     if (interim) { setHeard(interim, true); setFace('hearing'); }
     if (finalRes) {
-      const alts = [...finalRes].map(a => ({ text: a.transcript.trim(), conf: a.confidence || 0 })).filter(a => a.text);
+      const alts = [...finalRes].map(a => ({ text: a.transcript.trim(), conf: (a.confidence > 0) ? a.confidence : null })).filter(a => a.text);
       if (alts.length) holdThenSpeak(alts);
     }
   };
   rec.onerror = e => { if (!['no-speech', 'aborted'].includes(e.error)) setDoing('Microphone: ' + e.error, true); };
-  rec.onend = () => { if (listening && !speaking && !running) setTimeout(startRec, 250); };   // keep it going
+  rec.onend = () => { micActive = false; updateEars(); logLine('[mic] closed'); if (listening && !speaking && !running) setTimeout(startRec, RESTART_MS); };
 }
 // Wait a beat after a sentence ends in case you are still talking; join what follows onto it.
 const HOLD_MS = 1000;
@@ -440,30 +441,35 @@ function understood(text) {                        // does this text mean someth
   return parts.length > 0 && parts.every(p => { const g = resolveGroup(p); return g && !g.error; });
 }
 function onSpeech(alts) {
-  logLine('[heard] ' + alts.map(a => `"${a.text}" ${a.conf.toFixed(2)}`).join(' | '));
+  logLine('[heard] ' + alts.map(a => `"${a.text}" ${a.conf === null ? '?' : a.conf.toFixed(2)}`).join(' | '));
   const min = S.minConf;
+  const c = a => a.conf === null ? 0.7 : a.conf;                       // no score reported = assume fairly clear
   // 1. prefer any guess that we understand outright (and is not hopelessly unconfident)
-  let pick = alts.find(a => a.conf >= Math.min(min, 0.35) && understood(a.text));
+  let pick = alts.find(a => c(a) >= Math.min(min, 0.35) && understood(a.text));
   // 2. otherwise the top guess, if it is confident enough
-  if (!pick && alts[0].conf >= min) pick = alts[0];
-  if (!pick) { setHeard(alts[0].text + ' ?', true); return; }          // noise, most likely
+  if (!pick && c(alts[0]) >= min) pick = alts[0];
+  if (!pick) { setHeard(alts[0].text + ' ?', true); logLine('[rejected] low confidence and not a known phrase'); return; }
   const now = Date.now();
   if (pick.text.toLowerCase() === lastAccepted.text && now - lastAccepted.at < 2500) return;   // duplicate
   lastAccepted = { text: pick.text.toLowerCase(), at: now };
   setHeard(pick.text);
-  handleInput(pick.text, false, pick.conf);
+  handleInput(pick.text, false, pick.conf === null ? undefined : pick.conf);
 }
 
-function startRec() { if (!rec || !listening || speaking || running) return; try { rec.start(); } catch (e) {} }
-function micPause() { try { rec && rec.stop(); } catch (e) {} }
-function micResume(ms) { setTimeout(startRec, ms || 1000); }
+let micActive = false;
+const RESTART_MS = 400, AFTER_REPLY_MS = 1200;
+function updateEars() { ears.classList.toggle('show', listening && awake && micActive); }
+function startRec() { if (!rec || !listening || speaking || running || micActive) return; try { rec.start(); } catch (e) { logLine('[mic] start failed: ' + e.message); } }
+setInterval(() => { if (listening && !speaking && !running && !micActive) startRec(); }, 3000);   // heartbeat: never stay deaf
+function micPause() { try { rec && rec.abort(); } catch (e) {} micActive = false; updateEars(); }
+function micResume(ms) { setTimeout(startRec, ms || AFTER_REPLY_MS); }
 let awake = false, awakeTimer = null;
 function goStandby(quiet) {
-  awake = false; clearTimeout(awakeTimer);
+  awake = false; clearTimeout(awakeTimer); updateEars();
   if (listening) { setFace('standby'); setDoing(`Say "${S.wakeWord}" to wake me`); if (!quiet) say('Going to sleep'); }
 }
 function wakeUp() {
-  awake = true; setFace('listening'); setDoing('Awake. What should I do?'); touchAwake();
+  awake = true; updateEars(); setFace('listening'); setDoing('Awake. What should I do?'); touchAwake();
 }
 function touchAwake() { clearTimeout(awakeTimer); awakeTimer = setTimeout(() => goStandby(true), S.awakeSecs * 1000); }
 
@@ -555,9 +561,13 @@ function say(text) {
   const u = new SpeechSynthesisUtterance(text); u.lang = S.accent;
   const pv = pickVoice(); if (pv.voice) u.voice = pv.voice; u.pitch = pv.pitch;
   // pause the mic while talking so we do not hear ourselves
-  u.onstart = () => { speaking = true; try { rec && rec.stop(); } catch (e) {} };
-  u.onend = u.onerror = () => { speaking = false; setTimeout(startRec, 300); };
+  let done = false;
+  const finish = () => { if (done) return; done = true; speaking = false; micResume(AFTER_REPLY_MS); };
+  u.onstart = () => { speaking = true; micPause(); };
+  u.onend = u.onerror = finish;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
+  speaking = true; micPause();                                          // in case onstart never fires
+  setTimeout(finish, Math.max(2500, text.length * 90));                 // in case onend never fires
 }
 
 // ============================================================
@@ -678,9 +688,9 @@ async function runGroups(groups) {
       setDoing(reply || 'Done.'); setFace('happy', 1800); if (reply) say(reply);
     } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
   } catch (e) { setDoing('Send failed: ' + e.message, true); }
-  running = false; micResume(1000);
+  running = false; micResume(AFTER_REPLY_MS);
 }
-function stopEverything() { running = false; micResume(600); }
+function stopEverything() { running = false; micResume(AFTER_REPLY_MS); }
 
 async function handleInput(raw, typedIn, conf) {
   logLine('[you] ' + raw);
@@ -695,6 +705,7 @@ async function handleInput(raw, typedIn, conf) {
       whole = rest;
       if (!whole) { setFace('happy', 1200); say('Yes?'); return; }
     } else if (!awake) {
+      logLine('[ignored] not awake and no "' + S.wakeWord + '" heard');
       return;                                          // not talking to us
     } else {
       touchAwake();
