@@ -81,6 +81,10 @@
   @keyframes drift { 0%, 100% { translate: 0 0; } 30% { translate: 8px -4px; } 65% { translate: -7px 3px; } }
   @media (prefers-reduced-motion: reduce) { #eyes { animation: none !important; } }
 
+  #toast { position: fixed; top: calc(64px + var(--sat)); left: 50%; transform: translate(-50%, -20px); opacity: 0;
+    background: rgba(255,255,255,.94); color: #10131C; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
+    transition: all .25s; pointer-events: none; z-index: 15; white-space: nowrap; }
+  #toast.show { transform: translate(-50%, 0); opacity: 1; }
   #console { display: none; padding: 0 14px 8px; }
   #console.open { display: block; }
   #heard { font-size: 15px; color: var(--muted); min-height: 1.3em; }
@@ -129,6 +133,7 @@
   <button id="power" class="off">Start</button>
 </div>
 
+<div id="toast"></div>
 <div id="stage">
   <div id="ears" aria-hidden="true">
     <svg viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
@@ -259,7 +264,7 @@ const shortcutRows = $('shortcutRows'), addRow = $('addRow');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const gender = $('gender'), voiceName = $('voiceName'), testVoice = $('testVoice'), bgColor = $('bgColor'), bgReset = $('bgReset');
-const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears');
+const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast');
 
 // ============================================================
 //  Settings
@@ -354,6 +359,8 @@ function setFace(state, revertMs) {
   clearTimeout(faceTimer);
   if (revertMs) faceTimer = setTimeout(() => setFace(!listening ? 'off' : awake ? 'listening' : 'standby'), revertMs);
 }
+let toastTimer = null;
+function showToast(msg, ms) { toast.textContent = msg; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), ms || 2200); }
 function setHeard(text, interim) { heard.textContent = text; heard.classList.toggle('interim', !!interim); }
 function setDoing(text, bad) { doing.textContent = text || ''; doing.classList.toggle('bad', !!bad); if (bad) setFace('error', 2500); }
 function logLine(s) { const lines = (log.textContent + '\n' + s).split('\n').slice(-120); log.textContent = lines.join('\n'); log.scrollTop = log.scrollHeight; }
@@ -421,12 +428,28 @@ if (SR) {
 // Wait a beat after a sentence ends in case you are still talking; join what follows onto it.
 const HOLD_MS = 1000;
 let held = null, holdTimer = null;
+// "can" -> "can you move" -> "can you move right": each grows the last, so replace rather than append
+function mergeText(prev, next) {
+  const p = prev.toLowerCase().trim(), n = next.toLowerCase().trim();
+  if (!p) return next; if (!n) return prev;
+  if (n.startsWith(p) || n.includes(p)) return next;          // next is a longer version of prev
+  if (p.endsWith(n) || p.includes(n)) return prev;            // next is a fragment of prev
+  return prev + ' ' + next;                                   // genuinely new words
+}
+function dedupe(t) {
+  // collapse "can can can you move can you move right" -> "can you move right"
+  let out = t.replace(/\s+/g, ' ').trim();
+  for (let n = 4; n >= 1; n--) {
+    const re = new RegExp('\\b((?:\\w+ ){' + (n - 1) + '}\\w+)( \\1\\b)+', 'g');
+    out = out.replace(re, '$1');
+  }
+  return out;
+}
 function holdThenSpeak(alts) {
   if (held) {
-    // append the new words to every earlier guess (keep the earlier confidence, roughly)
     const first = alts[0];
-    held = held.map(h => ({ text: h.text + ' ' + first.text, conf: Math.min(h.conf, first.conf) }));
-  } else held = alts;
+    held = held.map(h => ({ text: dedupe(mergeText(h.text, first.text)), conf: (h.conf === null || first.conf === null) ? null : Math.min(h.conf, first.conf) }));
+  } else held = alts.map(a => ({ text: dedupe(a.text), conf: a.conf }));
   setHeard(held[0].text, true);
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => { const h = held; held = null; onSpeech(h); }, HOLD_MS);
@@ -703,9 +726,10 @@ async function handleInput(raw, typedIn, conf) {
       if (!awake) wakeUp();
       touchAwake();
       whole = rest;
-      if (!whole) { setFace('happy', 1200); say('Yes?'); return; }
+      if (!whole) { setFace('happy', 1200); say('Hm?'); showToast('Awake'); return; }
     } else if (!awake) {
       logLine('[ignored] not awake and no "' + S.wakeWord + '" heard');
+      if (understood(whole)) showToast(`Say "${S.wakeWord}" first`);   // it was a real command, so tell them
       return;                                          // not talking to us
     } else {
       touchAwake();
@@ -720,7 +744,7 @@ async function handleInput(raw, typedIn, conf) {
   if (/^(hello|hi|hey|hey there|hello there|good morning|good afternoon|good evening|namaste)$/.test(low)) {
     setFace('happy', 2000); setDoing('Hello!'); say(`Hello! I'm ${S.wakeWord}. What can I do for you?`); return;
   }
-  if (running) { setDoing('Still moving - say "stop" to interrupt.'); return; }
+  if (running) { setDoing('Still moving.'); showToast('Still moving'); logLine('[busy] ignored: ' + low); return; }
   if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your robotic arm.`); return; }
   if (/^(thank you|thanks|good job|well done|nice)$/.test(low)) { setFace('happy', 2000); say(`You're welcome`); return; }
 
@@ -729,15 +753,17 @@ async function handleInput(raw, typedIn, conf) {
   const bad = groups.find(g => g && g.error);
   if (bad) { setDoing(`Heard a joint but no number in "${bad.error}"`, true); say('Which number?'); return; }
   if (groups.every(Boolean)) {
-    if (!rxChar) { setDoing('Not connected to the arm. Open Settings to connect.', true); say('Not connected'); return; }
+    if (!rxChar) { setDoing('Not connected to the arm. Open Settings to connect.', true); showToast('Not connected to the arm'); say('Not connected'); return; }
     typed.value = '';
+    logLine('[run] ' + groups.map(g => g.join(' › ')).join('  ||  '));
     await runGroups(groups);
     return;
   }
   // unknown sentence: no AI here, so either apologise (if clearly heard) or stay quiet
   const words = low.split(/\s+/).filter(Boolean).length;
   const clear = typedIn || (words >= 2 && (conf === undefined || conf >= S.minConf + 0.1));
-  setHeard(whole + ' ?', true);
+  setHeard(whole + ' ?', true); logLine('[unknown] ' + whole);
+  showToast("Didn't understand");
   if (S.askUnknown && clear) { setDoing("Sorry, I didn't understand that."); say("Sorry, I didn't understand that"); }
 }
 askBtn.onclick = () => handleInput(typed.value, true);
