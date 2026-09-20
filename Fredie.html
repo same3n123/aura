@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>AURA</title>
+<title>Fredie</title>
 <meta name="theme-color" content="#0B1020">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AURA">
+<meta name="apple-mobile-web-app-title" content="Fredie">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -73,23 +73,21 @@
   @keyframes drift { 0%, 100% { translate: 0 0; } 30% { translate: 8px -4px; } 65% { translate: -7px 3px; } }
   @media (prefers-reduced-motion: reduce) { #eyes { animation: none !important; } }
 
-  #heard { margin-top: 18px; font-size: 20px; text-align: center; min-height: 1.4em; max-width: 90vw; line-height: 1.35; }
-  #heard.interim { color: var(--muted); }
-  #doing { margin-top: 8px; font-size: 14px; color: var(--muted); text-align: center; min-height: 1.3em; max-width: 90vw; }
+  #console { display: none; padding: 0 14px 8px; }
+  #console.open { display: block; }
+  #heard { font-size: 15px; color: var(--muted); min-height: 1.3em; }
+  #heard.interim { opacity: .6; }
+  #doing { font-size: 13px; color: var(--muted); min-height: 1.3em; margin-top: 2px; }
   #doing.bad { color: var(--bad); }
 
-  /* ---------- plan card ---------- */
-  #plan { width: min(92vw, 440px); background: var(--panel); border-radius: 16px; padding: 14px; margin-top: 16px; }
-  #plan p { margin: 0 0 6px; color: var(--muted); font-size: 14px; }
-  #plan ol { margin: 0; padding-left: 22px; font-size: 16px; }
-  #plan li.done { color: var(--muted); text-decoration: line-through; }
-  #plan li.now { color: var(--act); font-weight: 600; }
-  #plan .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 
   /* ---------- bottom ---------- */
   #bottom { padding: 8px 14px calc(12px + var(--sab)); display: flex; gap: 8px; align-items: center; }
-  #bottom input { margin: 0; flex: 1; }
-  #logBtn { padding: 12px; color: var(--muted); }
+  #bottom input { margin: 0; flex: 1; display: none; }
+  #bottom.open input, #bottom.open #askBtn { display: block; }
+  #askBtn { display: none; }
+  #logBtn, #kbBtn { padding: 12px; color: var(--muted); }
+  #bottom .spacer { flex: 1; }
 
   /* ---------- sheets ---------- */
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; top: 0; background: var(--bg); transform: translateY(100%);
@@ -114,7 +112,7 @@
 <body>
 
 <div id="bar">
-  <h1>AURA</h1>
+  <h1>FREDIE</h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="gear" class="ghost" aria-label="Settings">
@@ -133,17 +131,19 @@
       <path class="mouth" d="M 120 150 Q 150 168 180 150"/>
     </svg>
   </div>
-  <div id="heard"></div>
-  <div id="doing">Tap Start to begin listening</div>
-  <div id="plan" hidden>
-    <p id="planSay"></p>
-    <ol id="planList"></ol>
-  </div>
 </div>
 
+<div id="console">
+  <div id="heard"></div>
+  <div id="doing">Tap Start to begin listening</div>
+</div>
 <div id="bottom">
-  <input id="typed" type="text" placeholder="or type a command" autocomplete="off" autocapitalize="none">
+  <input id="typed" type="text" placeholder="type a command" autocomplete="off" autocapitalize="none">
   <button id="askBtn">Send</button>
+  <span class="spacer"></span>
+  <button id="kbBtn" class="ghost" aria-label="Show text and typing">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+  </button>
   <button id="logBtn" class="ghost" aria-label="Log">≡</button>
 </div>
 
@@ -162,14 +162,6 @@
     </div>
 
     <div class="section">
-      <h3>Claude</h3>
-      <label>API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
-      <label>Model<input id="model" type="text" value="claude-sonnet-5"></label>
-      <div class="row2"><button id="testBtn">Test key</button></div>
-      <div class="note" id="keyNote"></div>
-    </div>
-
-    <div class="section">
       <h3>Shortcuts</h3>
       <p class="hint">What you say, what it does, and (optionally) what it says when finished. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence and they run one after the other; the reply spoken is the last one's.</p>
       <table id="shortcuts">
@@ -180,30 +172,26 @@
     </div>
 
     <div class="section">
-      <h3>Teach Claude</h3>
-      <label>What each saved pose means (name: description)
-        <textarea id="descriptions" placeholder="home: resting position, gripper open
-pick: lowered onto the object, ready to grab"></textarea></label>
-      <label>Extra rules and examples
-        <textarea id="examples" placeholder='"put it away" means: go drop, open, go home'></textarea></label>
-    </div>
-
-    <div class="section">
       <h3>Timing</h3>
       <label>Seconds between commands inside one shortcut<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
       <label>Seconds between shortcuts said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
-      <label>Seconds between steps of a Claude plan<input id="planGap" type="text" value="2.5" inputmode="decimal"></label>
     </div>
 
     <div class="section">
       <h3>Name and voice</h3>
-      <label>The arm's name (say it to wake it up)<input id="wakeWord" type="text" value="Robin" autocapitalize="words"></label>
+      <label>The arm's name (say it to wake it up)<input id="wakeWord" type="text" value="Fredie" autocapitalize="words"></label>
       <label>Seconds it stays awake after the last command<input id="awakeSecs" type="text" value="30" inputmode="numeric"></label>
       <label>Accent for spoken replies
         <select id="accent">
           <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option>
           <option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option>
         </select></label>
+      <label>Voice
+        <select id="gender"><option value="female">Female (auto)</option><option value="male">Male (auto)</option><option value="any">Any</option></select></label>
+      <label>Or pick an exact voice on this phone
+        <select id="voiceName"><option value="">(auto)</option></select></label>
+      <div class="row2"><button id="testVoice">Test voice</button></div>
+      <p class="hint">Phones do not label voices male or female, so "auto" guesses from the voice name. If it guesses wrong, pick the exact voice from the list and use Test voice to hear it.</p>
       <label>Language it listens for
         <select id="lang">
           <option value="en-IN">English (India)</option><option value="en-US">English (US)</option>
@@ -214,10 +202,23 @@ pick: lowered onto the object, ready to grab"></textarea></label>
     </div>
 
     <div class="section">
+      <h3>Look</h3>
+      <label>Background colour</label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <input id="bgColor" type="color" value="#0B1020" style="width:56px;height:44px;padding:4px;margin:0">
+        <button id="bgReset">Default</button>
+        <button data-bg="#000000" class="swatch">Black</button>
+        <button data-bg="#1B1B1F" class="swatch">Graphite</button>
+        <button data-bg="#F3F1EA" class="swatch">Paper</button>
+      </div>
+      <p class="hint">Text and panels adjust automatically to stay readable on light or dark colours.</p>
+    </div>
+
+    <div class="section">
       <h3>Noise filtering</h3>
       <label>Minimum confidence to act (0.3 = loose, 0.8 = strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
-      <label>Send unknown sentences to Claude
-        <select id="askUnknown"><option value="1">Yes, if 3+ words and clear</option><option value="0">No - only known phrases</option></select></label>
+      <label>When it clearly hears a sentence it does not know
+        <select id="askUnknown"><option value="1">Say "Sorry, I didn't understand"</option><option value="0">Stay quiet</option></select></label>
       <p class="hint">Words it hears but rejects show faintly with a "?" so you can see what the noise sounds like to it. Raise the confidence if it keeps reacting to background sound; lower it if it ignores you.</p>
     </div>
 
@@ -238,54 +239,74 @@ window.onunhandledrejection = e => setDoing('Error: ' + (e.reason && e.reason.me
 
 const $ = id => document.getElementById(id);
 const pill = $('pill'), gear = $('gear'), power = $('power'), face = $('face'), heard = $('heard'), doing = $('doing');
-const plan = $('plan'), planSay = $('planSay'), planList = $('planList');
 const typed = $('typed'), askBtn = $('askBtn'), logBtn = $('logBtn'), log = $('log');
 const settings = $('settings'), closeSettings = $('closeSettings'), logSheet = $('logSheet'), closeLog = $('closeLog');
 const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
-const apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote');
-const shortcutRows = $('shortcutRows'), addRow = $('addRow'), descriptions = $('descriptions'), examples = $('examples');
-const stepGap = $('stepGap'), groupGap = $('groupGap'), planGap = $('planGap'), lang = $('lang'), talk = $('talk');
+const shortcutRows = $('shortcutRows'), addRow = $('addRow');
+const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
+const gender = $('gender'), voiceName = $('voiceName'), testVoice = $('testVoice'), bgColor = $('bgColor'), bgReset = $('bgReset');
+const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn');
 
 // ============================================================
 //  Settings
 // ============================================================
 const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
 const S = {
-  get apiKey() { return LS('apiKey', ''); },
-  get model() { return LS('model', 'claude-sonnet-5'); },
-  get descriptions() { return LS('desc', ''); },
-  get examples() { return LS('examples', ''); },
   get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
   get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
-  get planGap() { return parseFloat(LS('planGap', '2.5')) || 2.5; },
   get lang() { return LS('lang', 'en-IN'); },
   get talk() { return LS('talk', '1') === '1'; },
-  get wakeWord() { return (LS('wakeWord', 'Robin') || 'Robin').trim(); },
+  get wakeWord() { return (LS('wakeWord', 'Fredie') || 'Fredie').trim(); },
   get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
   get accent() { return LS('accent', 'en-US'); },
+  get gender() { return LS('gender', 'female'); },
+  get voiceName() { return LS('voiceName', ''); },
+  get bg() { return LS('bg', '#0B1020'); },
   get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
   get askUnknown() { return LS('askUnknown', '1') === '1'; },
   get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
 };
 function loadSettingsUI() {
-  apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions; examples.value = S.examples;
-  stepGap.value = S.stepGap; groupGap.value = S.groupGap; planGap.value = S.planGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
+  stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
   renderShortcuts(S.shortcuts);
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
+  gender.value = S.gender; bgColor.value = S.bg; applyTheme(S.bg); fillVoiceList();
 }
 function saveSettings() {
   try {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
-    set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
-    set('desc', descriptions.value); set('examples', examples.value);
-    set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('planGap', planGap.value);
+    set('stepGap', stepGap.value); set('groupGap', groupGap.value);
     set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
-    set('wakeWord', wakeWord.value.trim() || 'Robin'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
+    set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
+    set('gender', gender.value); set('voiceName', voiceName.value); set('bg', bgColor.value);
   } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
-  note(saveNote, S.apiKey ? 'Saved.' : 'Saved - but no API key yet, so Claude plans will not work.', S.apiKey ? 'ok' : 'bad');
+  note(saveNote, 'Saved.', 'ok');
 }
+function applyTheme(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return;
+  const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const mix = (k, t) => { const c = x => Math.round(x + (t - x) * k); return `rgb(${c(r)},${c(g)},${c(b)})`; };
+  const root = document.documentElement.style;
+  root.setProperty('--bg', hex);
+  if (lum > 0.5) {   // light background -> dark text, slightly darker panels
+    root.setProperty('--ink', '#1B2233'); root.setProperty('--muted', '#5C6678');
+    root.setProperty('--panel', mix(0.07, 0)); root.setProperty('--bg2', mix(0.04, 0)); root.setProperty('--line', mix(0.16, 0));
+    root.setProperty('--eye-dim', '#7FB7C4');
+  } else {            // dark background -> light text, slightly lighter panels
+    root.setProperty('--ink', '#E8EEF8'); root.setProperty('--muted', '#8A97B2');
+    root.setProperty('--panel', mix(0.09, 255)); root.setProperty('--bg2', mix(0.05, 255)); root.setProperty('--line', mix(0.18, 255));
+    root.setProperty('--eye-dim', '#2A6E7C');
+  }
+  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = hex;
+}
+bgColor.oninput = () => applyTheme(bgColor.value);
+bgReset.onclick = () => { bgColor.value = '#0B1020'; applyTheme('#0B1020'); };
+document.querySelectorAll('.swatch').forEach(b => b.onclick = () => { bgColor.value = b.dataset.bg; applyTheme(b.dataset.bg); });
+kbBtn.onclick = () => { const open = !consoleBox.classList.contains('open'); consoleBox.classList.toggle('open', open); bottom.classList.toggle('open', open); if (open) typed.focus(); };
+
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
 function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do, r.reply || '')); }
 function addShortcutRow(say = '', does = '', reply = '') {
@@ -308,15 +329,6 @@ gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
 closeLog.onclick = () => logSheet.classList.remove('open');
-
-testBtn.onclick = async () => {
-  const key = apiKey.value.trim(); if (!key) { note(keyNote, 'Paste a key first.', 'bad'); return; }
-  note(keyNote, 'Testing…');
-  try {
-    const r = await claude({ key, max_tokens: 10, messages: [{ role: 'user', content: 'Say OK' }] }, true);
-    note(keyNote, r.ok ? 'Key works.' : 'Rejected (' + r.status + '): ' + r.body.slice(0, 140), r.ok ? 'ok' : 'bad');
-  } catch (e) { note(keyNote, 'Could not reach the API: ' + e.message, 'bad'); }
-};
 
 // ============================================================
 //  Face + status
@@ -454,11 +466,41 @@ power.onclick = () => { if (running) stopEverything(); listening ? stopListening
 
 let voices = [];
 function refreshVoices() { try { voices = speechSynthesis.getVoices() || []; } catch (e) {} }
-if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged = refreshVoices; }
-function pickVoice() {
+if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged = () => { refreshVoices(); fillVoiceList(); }; }
+testVoice.onclick = () => {
+  // use the un-saved choices from the form so you can audition before saving
+  const u = new SpeechSynthesisUtterance(`Hello, I'm ${wakeWord.value.trim() || 'Fredie'}. This is my voice.`); u.lang = accent.value;
+  const explicit = voices.find(v => v.name === voiceName.value);
+  if (explicit) u.voice = explicit;
+  else { const save = { g: S.gender, a: S.accent, n: S.voiceName };
+         localStorage.setItem('aura.gender', gender.value); localStorage.setItem('aura.accent', accent.value); localStorage.setItem('aura.voiceName', '');
+         const v = pickVoice(); if (v) u.voice = v;
+         localStorage.setItem('aura.gender', save.g); localStorage.setItem('aura.accent', save.a); localStorage.setItem('aura.voiceName', save.n); }
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+};
+const FEMALE = /female|woman|girl|zira|samantha|susan|karen|moira|tessa|fiona|veena|heera|aria|jenny|emma|joanna|salli|kendra|kimberly|ivy|amy|nicole|raveena|aditi|sfg|-f\b/i;
+const MALE = /\bmale|man\b|boy|david|mark|daniel|alex|fred|tom|george|guy|matthew|ryan|joey|justin|brian|russell|william|sfa|-m\b/i;
+function voicesForAccent() {
   const want = S.accent.toLowerCase();
-  const cands = voices.filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith(want));
-  return cands.find(v => /google/i.test(v.name)) || cands.find(v => /natural|neural|premium/i.test(v.name)) || cands[0] || null;
+  const c = voices.filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith(want));
+  return c.length ? c : voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
+}
+function pickVoice() {
+  if (S.voiceName) { const v = voices.find(v => v.name === S.voiceName); if (v) return v; }
+  const cands = voicesForAccent();
+  const byGender = S.gender === 'female' ? cands.filter(v => FEMALE.test(v.name) && !MALE.test(v.name))
+                 : S.gender === 'male'   ? cands.filter(v => MALE.test(v.name) && !FEMALE.test(v.name)) : [];
+  const pool = byGender.length ? byGender : cands;
+  // Android Google voices are usually unlabelled; Google's first US voice is female, so "male" falls to the last of the list
+  if (!byGender.length && cands.length > 1 && S.gender === 'male') return cands[cands.length - 1];
+  return pool.find(v => /google/i.test(v.name)) || pool.find(v => /natural|neural|premium/i.test(v.name)) || pool[0] || null;
+}
+function fillVoiceList() {
+  const cur = S.voiceName;
+  voiceName.innerHTML = '<option value="">(auto)</option>';
+  voices.filter(v => (v.lang || '').toLowerCase().startsWith('en')).forEach(v => {
+    const o = document.createElement('option'); o.value = v.name; o.textContent = `${v.name} (${v.lang})`; if (v.name === cur) o.selected = true; voiceName.appendChild(o);
+  });
 }
 function say(text) {
   if (!text || !S.talk || !window.speechSynthesis) return;
@@ -590,7 +632,7 @@ async function runGroups(groups) {
   } catch (e) { setDoing('Send failed: ' + e.message, true); }
   running = false; micResume(1000);
 }
-function stopEverything() { running = false; plan.hidden = true; micResume(600); }
+function stopEverything() { running = false; micResume(600); }
 
 async function handleInput(raw, typedIn, conf) {
   logLine('[you] ' + raw);
@@ -633,82 +675,14 @@ async function handleInput(raw, typedIn, conf) {
     await runGroups(groups);
     return;
   }
-  // unknown sentence: only worth a Claude call if it is long enough and clearly heard
+  // unknown sentence: no AI here, so either apologise (if clearly heard) or stay quiet
   const words = low.split(/\s+/).filter(Boolean).length;
-  if (!typedIn) {
-    if (!S.askUnknown) { setHeard(whole + ' ?', true); return; }
-    if (words < 3 || (conf !== undefined && conf < S.minConf + 0.1)) { setHeard(whole + ' ?', true); return; }
-  }
-  ask(whole);
+  const clear = typedIn || (words >= 2 && (conf === undefined || conf >= S.minConf + 0.1));
+  setHeard(whole + ' ?', true);
+  if (S.askUnknown && clear) { setDoing("Sorry, I didn't understand that."); say("Sorry, I didn't understand that"); }
 }
 askBtn.onclick = () => handleInput(typed.value, true);
 typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
-
-// ============================================================
-//  Claude: plans from plain English
-// ============================================================
-async function claude(opts, raw) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': opts.key || S.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-    body: JSON.stringify({ model: S.model, max_tokens: opts.max_tokens || 500, system: opts.system, messages: opts.messages }),
-  });
-  if (raw) return { ok: r.ok, status: r.status, body: await r.text() };
-  if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 160));
-  const data = await r.json();
-  return data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
-}
-function systemPrompt() {
-  return `You control a small 6-servo hobby robot arm by choosing from a fixed list of commands.
-
-ALLOWED COMMANDS (nothing else exists):
-${poseNames.map(n => '  go ' + n).join('\n')}
-  open        (open the gripper)
-  close       (close the gripper)
-
-WHAT EACH POSE MEANS:
-${S.descriptions.trim() || '(no descriptions given - infer from the names)'}
-
-RULES:
-- Use only the allowed commands above, exactly as written. Never invent poses or angles.
-- To pick something up: go to the "above" pose, then the "at" pose, then close, then back to "above".
-- To put something down: "above" pose, "at" pose, open, back to "above".
-- Every plan ends with: go home
-- If the request is unclear, impossible with these poses, or unsafe, return an empty plan and explain in "say".
-- Keep "say" to one short spoken sentence confirming what you will do.
-${S.examples.trim() ? '\nEXAMPLES FROM THE OWNER:\n' + S.examples.trim() : ''}
-
-Respond with ONLY a JSON object, no markdown, no backticks:
-{"plan": ["go above-left", "close"], "say": "Picking up the block and moving it right."}`;
-}
-function isAllowed(cmd) { cmd = String(cmd).trim().toLowerCase(); if (cmd === 'open' || cmd === 'close') return true; const m = cmd.match(/^go ([a-z0-9-]+)$/); return !!(m && poseNames.includes(m[1])); }
-
-async function ask(text) {
-  if (!S.apiKey) { setDoing('Add your Claude API key in Settings first.', true); say('I need an API key first'); return; }
-  if (!poseNames.length) { setDoing('No poses loaded from the arm. Connect, then Reload poses.', true); say('I do not know any poses yet'); return; }
-  setFace('thinking'); setDoing('Thinking…');
-  let steps = [], what = '';
-  try {
-    const out = JSON.parse(await claude({ system: systemPrompt(), messages: [{ role: 'user', content: text }] }));
-    steps = (out.plan || []).filter(isAllowed); what = out.say || '';
-  } catch (e) { logLine('[claude error] ' + e.message); }
-  if (!steps.length) { setDoing(what || "Sorry, I didn't understand that."); say("Sorry, I didn't understand that"); setFace(awake ? 'listening' : 'standby'); return; }
-  if (!rxChar) { setDoing('Not connected to the arm.', true); say('Not connected'); return; }
-  planSay.textContent = what;
-  planList.innerHTML = ''; steps.forEach(c => { const li = document.createElement('li'); li.textContent = c; planList.appendChild(li); });
-  plan.hidden = false;
-  say(what);
-  running = true; setFace('moving'); micPause();
-  const items = [...planList.children];
-  try {
-    for (let i = 0; i < steps.length && running; i++) {
-      items[i].classList.add('now'); await send(steps[i]); await sleep(S.planGap * 1000);
-      items[i].classList.remove('now'); items[i].classList.add('done');
-    }
-    setDoing(running ? 'Done.' : 'Stopped.'); if (running) { setFace('happy', 1800); say('Done'); }
-  } catch (e) { setDoing('Stopped: ' + e.message, true); }
-  running = false; micResume(1000); setTimeout(() => { plan.hidden = true; }, 2000);
-}
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
