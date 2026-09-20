@@ -98,7 +98,7 @@
 
 <div id="banner"></div>
 <header>
-  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v16 vision</small></h1>
+  <h1>AURA voice <small style="font-size:12px;color:#5B6B80;font-weight:400">v18 vision</small></h1>
   <span id="link">not connected</span>
 </header>
 
@@ -152,6 +152,7 @@
   </div>
   <div id="objectBox">
     <input id="objectName" type="text" placeholder="what to grab, e.g. earphone">
+    <button id="stepBtn" class="quiet" disabled>Step</button>
     <button id="grabBtn" disabled>Grab</button>
   </div>
   <div id="visionStatus"></div>
@@ -201,6 +202,10 @@ at-right: lowered onto the right square"></textarea>
     <label>Stream URL (from the USB Camera Server app)
       <input id="streamUrl" type="text" value="http://localhost:8080/stream">
     </label>
+    <label>Start pose for grabbing (a saved pose name)
+      <input id="startPose" type="text" value="look">
+    </label>
+    <p class="hint">Drive the arm to where the camera sees the table well, then "save look". Every grab begins by going there.</p>
     <label>Joint that moves the view near/far (usually elbow)
       <select id="reachJoint"><option value="e">elbow (e)</option><option value="s">shoulder (s)</option><option value="w">wrist (w)</option></select>
     </label>
@@ -278,8 +283,8 @@ const addRow = $('addRow');
 const shortcutRows = $('shortcutRows');
 const cam = $('cam'), camWrap = $('camWrap'), camState = $('camState'), camBtn = $('camBtn'), lookBtn = $('lookBtn');
 const calBtn = $('calBtn'), grabBtn = $('grabBtn'), objectName = $('objectName'), visionStatus = $('visionStatus'), objMark = $('objMark');
-const jawV = $('jawV'), jawH = $('jawH');
-const streamUrl = $('streamUrl'), reachJoint = $('reachJoint'), descendCmd = $('descendCmd'), liftCmd = $('liftCmd'), grabSize = $('grabSize');
+const jawV = $('jawV'), jawH = $('jawH'), stepBtn = $('stepBtn');
+const startPose = $('startPose'), streamUrl = $('streamUrl'), reachJoint = $('reachJoint'), descendCmd = $('descendCmd'), liftCmd = $('liftCmd'), grabSize = $('grabSize');
 // ============================================================
 //  Settings (kept in this browser)
 // ============================================================
@@ -291,6 +296,7 @@ const S = {
   get delay()        { return parseFloat(localStorage.getItem('aura.delay') || '2.5'); },
   get lang()         { return localStorage.getItem('aura.lang') || 'en-IN'; },
   get shortcuts()    { try { return JSON.parse(localStorage.getItem('aura.shortcuts') || '[]'); } catch (e) { return []; } },
+  get startPose()    { return (localStorage.getItem('aura.startPose') || 'look').trim().toLowerCase(); },
   get streamUrl()    { return localStorage.getItem('aura.streamUrl') || 'http://localhost:8080/stream'; },
   get reachJoint()   { return localStorage.getItem('aura.reachJoint') || 'e'; },
   get descendCmd()   { return localStorage.getItem('aura.descendCmd') || 's -6'; },
@@ -323,7 +329,7 @@ function loadSettingsUI() {
   apiKey.value = S.apiKey; model.value = S.model; descriptions.value = S.descriptions;
   examples.value = S.examples; delay.value = S.delay; lang.value = S.lang;
   renderShortcuts(S.shortcuts);
-  streamUrl.value = S.streamUrl; reachJoint.value = S.reachJoint; descendCmd.value = S.descendCmd;
+  startPose.value = S.startPose; streamUrl.value = S.streamUrl; reachJoint.value = S.reachJoint; descendCmd.value = S.descendCmd;
   liftCmd.value = S.liftCmd; grabSize.value = S.grabSize;
 }
 function saveSettings() {
@@ -335,6 +341,7 @@ function saveSettings() {
     localStorage.setItem('aura.delay', delay.value);
     localStorage.setItem('aura.lang', lang.value);
     localStorage.setItem('aura.shortcuts', JSON.stringify(readShortcuts()));
+    localStorage.setItem('aura.startPose', startPose.value.trim());
     localStorage.setItem('aura.streamUrl', streamUrl.value.trim());
     localStorage.setItem('aura.reachJoint', reachJoint.value);
     localStorage.setItem('aura.descendCmd', descendCmd.value.trim());
@@ -786,14 +793,14 @@ camBtn.onclick = () => camOn ? cameraOff() : cameraOn();
 function cameraOn() {
   cam.crossOrigin = 'anonymous';
   cam.onload = () => { camOn = true; camState.textContent = 'live'; camWrap.hidden = false; camBtn.textContent = 'Camera off';
-                       lookBtn.disabled = calBtn.disabled = grabBtn.disabled = false;
+                       lookBtn.disabled = calBtn.disabled = grabBtn.disabled = stepBtn.disabled = false;
                        vsay(S.calib ? 'Ready. Calibrated.' : 'Ready. Tap Calibrate once before grabbing.'); };
   cam.onerror = () => { camOn = false; camState.textContent = 'no stream'; vsay('Cannot load the stream. Is the USB Camera Server app running?', true); };
   cam.src = S.streamUrl + (S.streamUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
 }
 function cameraOff() {
   cam.src = ''; camOn = false; camState.textContent = 'off'; camWrap.hidden = true; camBtn.textContent = 'Camera on';
-  lookBtn.disabled = calBtn.disabled = grabBtn.disabled = true;
+  lookBtn.disabled = calBtn.disabled = grabBtn.disabled = stepBtn.disabled = true;
 }
 
 // Grayscale 64x48 snapshot for shift detection
@@ -826,7 +833,7 @@ function sceneShift(a, b) {
   return { dx: best.dx * 100 / W, dy: best.dy * 100 / H, err: best.err };
 }
 
-// ---- Calibrate: learn what base and reach nudges do to the picture ----
+// ---- Calibrate: which way does each joint slide the picture, and how much per degree? ----
 const CAL_DEG = 8;
 async function calibrate() {
   if (!rxChar) { vsay('Connect to the arm first.', true); return; }
@@ -835,37 +842,34 @@ async function calibrate() {
   try {
     const f0 = tinyFrame();
     await send('b +' + CAL_DEG); await sleep(1800);
-    const f1 = tinyFrame();
-    const sb = sceneShift(f0, f1);
+    const sb = sceneShift(f0, tinyFrame());
     await send('b -' + CAL_DEG); await sleep(1800);
     const f2 = tinyFrame();
     await send(rj + ' +' + CAL_DEG); await sleep(1800);
-    const f3 = tinyFrame();
-    const sr = sceneShift(f2, f3);
+    const sr = sceneShift(f2, tinyFrame());
     await send(rj + ' -' + CAL_DEG); await sleep(1200);
-    // scene shift per degree, as % of frame
-    const calib = { bx: sb.dx / CAL_DEG, by: sb.dy / CAL_DEG, rx: sr.dx / CAL_DEG, ry: sr.dy / CAL_DEG, rj };
-    const det = calib.bx * calib.ry - calib.by * calib.rx;
-    if (Math.abs(sb.dx) + Math.abs(sb.dy) < 1.5 || Math.abs(sr.dx) + Math.abs(sr.dy) < 1.5 || Math.abs(det) < 1e-4) {
-      vsay('Calibration failed: the picture barely moved. Put a few objects on the table so there is something to see, and try again.', true); return;
+
+    // Each joint mostly moves the picture along ONE axis. Keep that axis and the gain (% per degree).
+    const pick = sh => Math.abs(sh.dx) >= Math.abs(sh.dy) ? { axis: 'x', gain: sh.dx / CAL_DEG } : { axis: 'y', gain: sh.dy / CAL_DEG };
+    const base = pick(sb), reach = pick(sr);
+    if (Math.abs(sb.dx) + Math.abs(sb.dy) < 1.5 || Math.abs(sr.dx) + Math.abs(sr.dy) < 1.5) {
+      vsay('Calibration failed: the picture barely moved. Put a few objects on the table and try again.', true); return;
     }
-    localStorage.setItem('aura.calib', JSON.stringify(calib));
-    vsay(`Calibrated. base: ${sb.dx.toFixed(0)},${sb.dy.toFixed(0)}%  ${rj}: ${sr.dx.toFixed(0)},${sr.dy.toFixed(0)}% per ${CAL_DEG}°`);
+    if (base.axis === reach.axis) {
+      vsay('Calibration odd: base and ' + rj + ' both move the picture the same way. Try a different reach joint in Settings.', true); return;
+    }
+    localStorage.setItem('aura.calib', JSON.stringify({ base, reach, rj }));
+    vsay(`Calibrated. base slides ${base.axis} by ${(base.gain * CAL_DEG).toFixed(0)}% per ${CAL_DEG}°, ${rj} slides ${reach.axis} by ${(reach.gain * CAL_DEG).toFixed(0)}% per ${CAL_DEG}°`);
   } catch (e) { vsay('Calibration error: ' + e.message, true); }
 }
 calBtn.onclick = calibrate;
 
-// Given where the object is (% from left/top), what base/reach nudge brings it to the centre?
-function nudgeFor(ox, oy) {
-  const c = S.calib; if (!c) return null;
-  const j = S.jaw;
-  const wantX = j.x - ox, wantY = j.y - oy;     // scene must shift so the object lands on the jaw point
-  const det = c.bx * c.ry - c.by * c.rx;
-  let db = ( wantX * c.ry - wantY * c.rx) / det;
-  let dr = (-wantX * c.by + wantY * c.bx) / det;
-  const cap = 10;                                 // never more than 10° per step
-  const m = Math.max(1, Math.abs(db) / cap, Math.abs(dr) / cap);
-  return { db: Math.round(db / m), dr: Math.round(dr / m), rj: c.rj };
+// How many degrees to move ONE joint so the object slides "want" percent along that joint's axis
+function stepFor(joint, want) {
+  const g = joint.gain; if (!g) return 0;
+  let deg = want / g;                                   // exact answer
+  const mag = Math.min(8, Math.max(2, Math.abs(deg)));  // never tiny, never wild
+  return Math.round(Math.sign(deg) * mag);
 }
 
 // ---- Ask Claude where the object is ----
@@ -911,57 +915,111 @@ lookBtn.onclick = async () => {
   } catch (e) { vsay('Look failed: ' + e.message, true); }
 };
 
-// ---- Grab: the full loop ----
+// ---- Grab: one joint at a time ----
 let grabbing = false;
-grabBtn.onclick = () => grabbing ? (grabbing = false) : visionGrab(objectName.value.trim());
+const TOL = 6;              // % of frame - close enough
+const SETTLE = 1600;        // ms to wait after a move before looking again
+
+// One look + one decision. Returns 'base' | 'reach' | 'descend' | 'ready' | 'lost'
+async function grabStep(name) {
+  const c = S.calib, j = S.jaw;
+  const o = await locate(name);
+  logLine('[claude] ' + JSON.stringify(o));
+  if (!o.found) { vsay(`Can't see the ${name}. ${o.note || ''}`, true); return 'lost'; }
+  markObject(o.x, o.y);
+  const off = { x: o.x - j.x, y: o.y - j.y };                 // where the object is, relative to the jaws
+  const baseOff  = c.base.axis  === 'x' ? off.x : off.y;
+  const reachOff = c.reach.axis === 'x' ? off.x : off.y;
+
+  if (Math.abs(baseOff) > TOL) {
+    const d = stepFor(c.base, -baseOff);                      // slide the object toward the jaws
+    vsay(`Base phase: object ${baseOff > 0 ? 'right' : 'left'} of jaws by ${Math.abs(baseOff).toFixed(0)}% → b ${d > 0 ? '+' : ''}${d}`);
+    await send(`b ${d > 0 ? '+' : ''}${d}`); await sleep(SETTLE);
+    return 'base';
+  }
+  if (Math.abs(reachOff) > TOL) {
+    const d = stepFor(c.reach, -reachOff);
+    vsay(`Reach phase: object ${reachOff > 0 ? 'beyond' : 'short of'} jaws by ${Math.abs(reachOff).toFixed(0)}% → ${c.rj} ${d > 0 ? '+' : ''}${d}`);
+    await send(`${c.rj} ${d > 0 ? '+' : ''}${d}`); await sleep(SETTLE);
+    return 'reach';
+  }
+  if (o.size >= S.grabSize) {
+    vsay(`Aligned and close (size ${o.size}%). Ready to grab.`);
+    return 'ready';
+  }
+  vsay(`Aligned (size ${o.size}%, want ${S.grabSize}%). Lowering one step…`);
+  await send(S.descendCmd); await sleep(SETTLE);
+  return 'descend';
+}
+
+function armReady(name) {
+  speak('Ready to grab. Confirm?');
+  grabBtn.textContent = 'Close & lift';
+  grabBtn.onclick = async () => {
+    resetGrabBtn();
+    await send('close'); await sleep(1200);
+    await send(S.liftCmd); await sleep(1500);
+    await send('go home');
+    vsay('Grabbed and lifted.'); speak('Done');
+  };
+}
+function resetGrabBtn() { grabBtn.textContent = 'Grab'; grabBtn.onclick = () => grabbing ? (grabbing = false) : visionGrab(objectName.value.trim()); }
+resetGrabBtn();
+
+function visionChecks(name) {
+  if (!name)      { vsay('Type what to grab.', true); return false; }
+  if (!rxChar)    { vsay('Connect to the arm first.', true); return false; }
+  if (!camOn)     { vsay('Turn the camera on first.', true); return false; }
+  if (!S.calib || !S.calib.base) { vsay('Tap Calibrate once first.', true); return false; }
+  if (!S.apiKey)  { vsay('Add your API key in Settings.', true); return false; }
+  return true;
+}
+
+// Step = exactly one look-and-move, so you can watch it think
+stepBtn.onclick = async () => {
+  const name = objectName.value.trim();
+  if (!visionChecks(name) || grabbing) return;
+  stepBtn.disabled = true;
+  try { const r = await grabStep(name); if (r === 'ready') armReady(name); }
+  catch (e) { vsay('Step failed: ' + e.message, true); }
+  stepBtn.disabled = false;
+};
+
 async function visionGrab(name) {
-  if (!name) { vsay('Type what to grab.', true); return; }
-  if (!rxChar) { vsay('Connect to the arm first.', true); return; }
-  if (!camOn) { vsay('Turn the camera on first.', true); return; }
-  if (!S.calib) { vsay('Tap Calibrate once first.', true); return; }
-  if (!S.apiKey) { vsay('Add your API key in Settings.', true); return; }
+  if (!visionChecks(name)) return;
   grabbing = true; grabBtn.textContent = 'Stop';
-  const TOL = 7, MAX_STEPS = 14;
-  let descents = 0;
+  const MAX_STEPS = 20;
   try {
-    for (let step = 1; step <= MAX_STEPS && grabbing; step++) {
-      vsay(`Step ${step}: looking for the ${name}…`);
-      const o = await locate(name);
-      if (!o.found) { vsay(`Can't see the ${name}. ${o.note || ''} Move the arm so it is in view and try again.`, true); break; }
-      markObject(o.x, o.y);
-      const j = S.jaw;
-      const offX = o.x - j.x, offY = o.y - j.y;
-      const centred = Math.abs(offX) <= TOL && Math.abs(offY) <= TOL;
-      if (centred && o.size >= S.grabSize) {
-        vsay(`Over the ${name} and close enough (size ${o.size}%). Tap Grab to close the jaws.`);
-        speak('Ready to grab. Confirm?');
-        grabBtn.textContent = 'Close & lift';
-        grabBtn.onclick = async () => {
-          grabBtn.onclick = () => grabbing ? (grabbing = false) : visionGrab(objectName.value.trim());
-          grabBtn.textContent = 'Grab';
-          await send('close'); await sleep(1200);
-          await send(S.liftCmd); await sleep(1500);
-          await send('go home');
-          vsay('Grabbed and lifted.'); speak('Done');
-        };
-        return;
-      }
-      if (centred) {
-        descents++;
-        vsay(`Centred (size ${o.size}%). Lowering…`);
-        await send(S.descendCmd); await sleep(1500);
-        continue;
-      }
-      const n = nudgeFor(o.x, o.y);
-      vsay(`${name} at ${o.x.toFixed(0)},${o.y.toFixed(0)} → base ${n.db >= 0 ? '+' : ''}${n.db}, ${n.rj} ${n.dr >= 0 ? '+' : ''}${n.dr}`);
-      if (n.db) await send(`b ${n.db >= 0 ? '+' : ''}${n.db}`);
-      if (n.dr) { await sleep(300); await send(`${n.rj} ${n.dr >= 0 ? '+' : ''}${n.dr}`); }
-      await sleep(1500);
+    // 1. go to the start pose so the camera has a good view
+    const sp = S.startPose;
+    if (sp && poseNames.includes(sp)) {
+      vsay('Moving to start pose "' + sp + '"…');
+      await send('go ' + sp); await sleep(3000);
+    } else if (sp) {
+      vsay('No saved pose called "' + sp + '" - starting from where the arm is. (Save one with: save ' + sp + ')');
     }
-    if (grabbing) vsay('Gave up after ' + MAX_STEPS + ' steps. Try from a different start position.', true);
-    else vsay('Stopped.');
+    // 2. if the object is not in view from there, look around a little
+    let first = await locate(name);
+    logLine('[claude] ' + JSON.stringify(first));
+    if (!first.found && grabbing) {
+      for (const turn of ['b -20', 'b +40', 'b -20']) {          // left, right, back to centre
+        vsay(`Can't see the ${name} yet - looking around (${turn})…`);
+        await send(turn); await sleep(SETTLE + 400);
+        const o = await locate(name); logLine('[claude] ' + JSON.stringify(o));
+        if (o.found) { first = o; break; }
+        if (!grabbing) break;
+      }
+      if (!first.found) { vsay(`Can't find the ${name} from the start pose. Place it closer to the arm.`, true); grabbing = false; resetGrabBtn(); return; }
+    }
+    // 3. the one-joint-at-a-time loop
+    for (let n = 1; n <= MAX_STEPS && grabbing; n++) {
+      const r = await grabStep(name);
+      if (r === 'lost') break;
+      if (r === 'ready') { grabbing = false; armReady(name); return; }
+    }
+    if (grabbing) vsay('Gave up after ' + MAX_STEPS + ' steps.', true); else vsay('Stopped.');
   } catch (e) { vsay('Grab failed: ' + e.message, true); }
-  grabbing = false; grabBtn.textContent = 'Grab';
+  grabbing = false; resetGrabBtn();
 }
 
 // ============================================================
