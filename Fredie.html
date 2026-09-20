@@ -46,6 +46,14 @@
 
   /* ---------- face ---------- */
   #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 20px; min-height: 0; }
+  #ears { display: none; align-items: center; gap: 14px; margin-bottom: 6px; color: #fff; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; }
+  #ears.show { display: flex; }
+  #ears svg { width: 30px; height: 36px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #ears svg.r { transform: scaleX(-1); }
+  @media (prefers-reduced-motion: no-preference) { #ears.show svg { animation: wiggle 2.4s ease-in-out infinite; } #ears.show svg.r { animation-delay: 1.2s; } }
+  @keyframes wiggle { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } }
+  @keyframes wiggle-r { 0%, 100% { transform: scaleX(-1) rotate(0); } 50% { transform: scaleX(-1) rotate(-8deg); } }
+  #ears.show svg.r { animation-name: wiggle-r; }
   #face { width: min(78vw, 360px); aspect-ratio: 3 / 2; position: relative; }
   #face svg { width: 100%; height: 100%; overflow: visible; }
   .eye { fill: var(--eye-dim); transition: all .35s cubic-bezier(.4,0,.2,1); transform-box: fill-box; transform-origin: center; }
@@ -122,6 +130,11 @@
 </div>
 
 <div id="stage">
+  <div id="ears" aria-hidden="true">
+    <svg viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
+    <span>listening</span>
+    <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
+  </div>
   <div id="face" class="s-off">
     <svg viewBox="0 0 300 200" aria-hidden="true">
       <g id="eyes" class="glow">
@@ -246,7 +259,7 @@ const shortcutRows = $('shortcutRows'), addRow = $('addRow');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const gender = $('gender'), voiceName = $('voiceName'), testVoice = $('testVoice'), bgColor = $('bgColor'), bgReset = $('bgReset');
-const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn');
+const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears');
 
 // ============================================================
 //  Settings
@@ -282,7 +295,7 @@ function saveSettings() {
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('gender', gender.value); set('voiceName', voiceName.value); set('bg', bgColor.value);
   } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
-  note(saveNote, 'Saved.', 'ok');
+  note(saveNote, 'Saved. Wake word is "' + S.wakeWord + '".', 'ok');
 }
 function applyTheme(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return;
@@ -324,6 +337,7 @@ function readShortcuts() {
 }
 try { loadSettingsUI(); } catch (e) {}
 saveBtn.onclick = saveSettings;
+settings.querySelector('.body').addEventListener('change', e => { if (e.target.matches('input, select, textarea')) saveSettings(); });
 addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
 gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
@@ -336,6 +350,7 @@ closeLog.onclick = () => logSheet.classList.remove('open');
 let faceTimer = null;
 function setFace(state, revertMs) {
   face.className = 's-' + state;
+  ears.classList.toggle('show', listening && awake && state !== 'off' && state !== 'standby');
   clearTimeout(faceTimer);
   if (revertMs) faceTimer = setTimeout(() => setFace(!listening ? 'off' : awake ? 'listening' : 'standby'), revertMs);
 }
@@ -396,11 +411,24 @@ if (SR) {
     if (interim) { setHeard(interim, true); setFace('hearing'); }
     if (finalRes) {
       const alts = [...finalRes].map(a => ({ text: a.transcript.trim(), conf: a.confidence || 0 })).filter(a => a.text);
-      if (alts.length) onSpeech(alts);
+      if (alts.length) holdThenSpeak(alts);
     }
   };
   rec.onerror = e => { if (!['no-speech', 'aborted'].includes(e.error)) setDoing('Microphone: ' + e.error, true); };
   rec.onend = () => { if (listening && !speaking && !running) setTimeout(startRec, 250); };   // keep it going
+}
+// Wait a beat after a sentence ends in case you are still talking; join what follows onto it.
+const HOLD_MS = 1000;
+let held = null, holdTimer = null;
+function holdThenSpeak(alts) {
+  if (held) {
+    // append the new words to every earlier guess (keep the earlier confidence, roughly)
+    const first = alts[0];
+    held = held.map(h => ({ text: h.text + ' ' + first.text, conf: Math.min(h.conf, first.conf) }));
+  } else held = alts;
+  setHeard(held[0].text, true);
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => { const h = held; held = null; onSpeech(h); }, HOLD_MS);
 }
 // Which of the engine's guesses (if any) is worth acting on?
 let lastAccepted = { text: '', at: 0 };
@@ -470,12 +498,8 @@ if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged =
 testVoice.onclick = () => {
   // use the un-saved choices from the form so you can audition before saving
   const u = new SpeechSynthesisUtterance(`Hello, I'm ${wakeWord.value.trim() || 'Fredie'}. This is my voice.`); u.lang = accent.value;
-  const explicit = voices.find(v => v.name === voiceName.value);
-  if (explicit) u.voice = explicit;
-  else { const save = { g: S.gender, a: S.accent, n: S.voiceName };
-         localStorage.setItem('aura.gender', gender.value); localStorage.setItem('aura.accent', accent.value); localStorage.setItem('aura.voiceName', '');
-         const v = pickVoice(); if (v) u.voice = v;
-         localStorage.setItem('aura.gender', save.g); localStorage.setItem('aura.accent', save.a); localStorage.setItem('aura.voiceName', save.n); }
+  saveSettings();                                   // settings auto-save anyway; make sure the test uses the form
+  const pv = pickVoice(); if (pv.voice) u.voice = pv.voice; u.pitch = pv.pitch;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 };
 const FEMALE = /female|woman|girl|zira|samantha|susan|karen|moira|tessa|fiona|veena|heera|aria|jenny|emma|joanna|salli|kendra|kimberly|ivy|amy|nicole|raveena|aditi|sfg|-f\b/i;
@@ -485,15 +509,25 @@ function voicesForAccent() {
   const c = voices.filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith(want));
   return c.length ? c : voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
 }
+// Returns { voice, pitch }. Pitch is used to fake a gender when the phone has no matching voice.
 function pickVoice() {
-  if (S.voiceName) { const v = voices.find(v => v.name === S.voiceName); if (v) return v; }
-  const cands = voicesForAccent();
-  const byGender = S.gender === 'female' ? cands.filter(v => FEMALE.test(v.name) && !MALE.test(v.name))
-                 : S.gender === 'male'   ? cands.filter(v => MALE.test(v.name) && !FEMALE.test(v.name)) : [];
-  const pool = byGender.length ? byGender : cands;
-  // Android Google voices are usually unlabelled; Google's first US voice is female, so "male" falls to the last of the list
-  if (!byGender.length && cands.length > 1 && S.gender === 'male') return cands[cands.length - 1];
-  return pool.find(v => /google/i.test(v.name)) || pool.find(v => /natural|neural|premium/i.test(v.name)) || pool[0] || null;
+  if (S.voiceName) { const v = voices.find(v => v.name === S.voiceName); if (v) return { voice: v, pitch: 1 }; }
+  const isF = v => FEMALE.test(v.name) && !MALE.test(v.name), isM = v => MALE.test(v.name) && !FEMALE.test(v.name);
+  const rank = pool => pool.find(v => /google/i.test(v.name)) || pool.find(v => /natural|neural|premium/i.test(v.name)) || pool[0] || null;
+  const accentVoices = voicesForAccent();
+  const allEnglish = voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
+  if (S.gender === 'male') {
+    const v = rank(accentVoices.filter(isM)) || rank(allEnglish.filter(isM));
+    if (v) return { voice: v, pitch: 1 };
+    // Android usually ships one unlabelled (female-sounding) voice per accent: use it, but lower
+    if (accentVoices.length > 1) return { voice: accentVoices[accentVoices.length - 1], pitch: 0.75 };
+    return { voice: rank(accentVoices), pitch: 0.7 };
+  }
+  if (S.gender === 'female') {
+    const v = rank(accentVoices.filter(isF)) || rank(accentVoices.filter(x => !isM(x))) || rank(allEnglish.filter(isF));
+    return { voice: v || rank(accentVoices), pitch: 1.05 };
+  }
+  return { voice: rank(accentVoices), pitch: 1 };
 }
 function fillVoiceList() {
   const cur = S.voiceName;
@@ -505,7 +539,7 @@ function fillVoiceList() {
 function say(text) {
   if (!text || !S.talk || !window.speechSynthesis) return;
   const u = new SpeechSynthesisUtterance(text); u.lang = S.accent;
-  const v = pickVoice(); if (v) u.voice = v;
+  const pv = pickVoice(); if (pv.voice) u.voice = pv.voice; u.pitch = pv.pitch;
   // pause the mic while talking so we do not hear ourselves
   u.onstart = () => { speaking = true; try { rec && rec.stop(); } catch (e) {} };
   u.onend = u.onerror = () => { speaking = false; setTimeout(startRec, 300); };
