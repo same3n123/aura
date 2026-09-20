@@ -467,13 +467,27 @@ function wakeUp() {
 }
 function touchAwake() { clearTimeout(awakeTimer); awakeTimer = setTimeout(() => goStandby(true), S.awakeSecs * 1000); }
 
-// Does this sentence start with (or contain) the name? Tolerates small mishearings.
+// Does this sentence start with the name? Tolerates the recogniser's own spellings
+// (Fredie / Freddy / Freddie / Fred E) by comparing a rough "sound key" as well as letters.
+function soundKey(w) {
+  w = flat(w).replace(/ph/g, 'f').replace(/ck/g, 'k').replace(/(.)\1+/g, '$1');   // collapse doubles
+  return (w[0] || '') + w.slice(1).replace(/[aeiouyhw]/g, '');                      // keep first letter, drop vowels
+}
+function sameName(word, name) {
+  const a = flat(word), n = flat(name); if (!a || !n) return false;
+  if (a === n) return true;
+  const allow = n.length >= 6 ? 2 : n.length >= 4 ? 1 : 0;
+  if (editDistance(a, n) <= allow) return true;
+  return n.length >= 4 && soundKey(a) === soundKey(n);
+}
 function stripWake(text) {
-  const name = flat(S.wakeWord); const words = text.split(/\s+/);
-  for (let i = 0; i < Math.min(words.length, 3); i++) {              // name should be near the start
-    const w = flat(words[i]); if (!w) continue;
-    if (w === name || (name.length >= 4 && editDistance(w, name) <= 1)) {
-      return words.slice(i + 1).join(' ').replace(/^[,.!?\s]+/, '');
+  const words = text.trim().split(/\s+/);
+  for (let i = 0; i < Math.min(words.length, 3); i++) {
+    for (const len of [2, 1]) {                                 // try "fred e" before "fred"
+      if (i + len > words.length) continue;
+      if (sameName(words.slice(i, i + len).join(''), S.wakeWord)) {
+        return words.slice(i + len).join(' ').replace(/^[,.!?\s]+/, '');
+      }
     }
   }
   return null;
