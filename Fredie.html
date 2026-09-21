@@ -237,6 +237,10 @@
   .amt { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
   .amt input { margin: 0; padding: 9px; font-size: 13px; }
   .amt input[type=number] { flex: 0 0 74px; }
+  #rangeTbl { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  #rangeTbl th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
+  #rangeTbl td { padding: 3px 2px; font-size: 13px; color: var(--muted); }
+  #rangeTbl input { margin: 0; padding: 9px 6px; font-size: 13px; }
   #jointWords { width: 100%; border-collapse: collapse; margin-top: 6px; }
   #jointWords th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
   #jointWords td { padding: 3px 2px; font-size: 13px; color: var(--muted); }
@@ -313,7 +317,7 @@
 <div id="chatMode" class="mode">
 <div id="bar">
   <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.2</small></h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.4</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -419,6 +423,17 @@
       <p class="hint">What the two joints above the elbow physically do. Everything - the 3D model, "look down", "twist", the AI's guide - follows this.</p>
       <label>Wrist (w, channel 3)<select id="typeW"><option value="rotate">turns / rotates the gripper</option><option value="tilt">tilts up and down</option></select></label>
       <label>Roll (r, channel 4)<select id="typeR"><option value="tilt">tilts up and down</option><option value="rotate">turns / rotates the gripper</option></select></label>
+      <p class="hint" style="margin-top:14px">How far each joint really moves. "Sweep" is the total physical travel across the servo's full 0-180. Limits are the servo angles the app will never go past.</p>
+      <table id="rangeTbl">
+        <thead><tr><th>Joint</th><th>Sweep °</th><th>Min</th><th>Max</th></tr></thead>
+        <tbody>
+          <tr><td>Wrist (w)</td><td><input data-j="w" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="w" data-k="min" type="number" min="0" max="180"></td><td><input data-j="w" data-k="max" type="number" min="0" max="180"></td></tr>
+          <tr><td>Roll (r)</td><td><input data-j="r" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="r" data-k="min" type="number" min="0" max="180"></td><td><input data-j="r" data-k="max" type="number" min="0" max="180"></td></tr>
+          <tr><td>Gripper (g)</td><td><input data-j="g" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="g" data-k="min" type="number" min="0" max="180"></td><td><input data-j="g" data-k="max" type="number" min="0" max="180"></td></tr>
+        </tbody>
+      </table>
+      <div class="row2" style="margin-top:8px"><button id="rangeReset">Reset ranges</button></div>
+      <p class="hint">The gripper's "open" and "close" positions come from the arm itself (set open / set close), so its limits only matter for numbered commands.</p>
     </div>
 
     <div class="section">
@@ -563,10 +578,18 @@ const stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
-const typeW = $('typeW'), typeR = $('typeR');
+const typeW = $('typeW'), typeR = $('typeR'), rangeInputs = [...document.querySelectorAll('#rangeTbl input')];
 const tasksBox = $('tasks'), addTaskBtn = $('addTask');
 const moveRows = $('moveRows'), addMoveBtn = $('addMove'), movesResetBtn = $('movesReset');
 const littleN = $('littleN'), littleW = $('littleW'), lotN = $('lotN'), lotW = $('lotW'), defN = $('defN');
+// bottom three are MG996R (full 180); the top three are SG90s on 90-degree joints
+const DEFAULT_RANGES = { b: { sweep: 180, min: 0, max: 180 }, s: { sweep: 180, min: 0, max: 180 }, e: { sweep: 180, min: 0, max: 180 },
+                         w: { sweep: 90, min: 45, max: 135 }, r: { sweep: 90, min: 45, max: 135 }, g: { sweep: 90, min: 0, max: 180 } };
+function jointRanges() {
+  try { const r = JSON.parse(LS('ranges', '{}')); const out = {}; for (const j in DEFAULT_RANGES) out[j] = Object.assign({}, DEFAULT_RANGES[j], r[j] || {}); return out; }
+  catch (e) { return JSON.parse(JSON.stringify(DEFAULT_RANGES)); }
+}
+function clampJoint(j, v) { const r = jointRanges()[j] || { min: 0, max: 180 }; return Math.max(r.min, Math.min(r.max, Math.round(v))); }
 function jointTypes() { return { b: 'rotate', s: 'tilt', e: 'tilt', w: LS('typeW', 'rotate'), r: LS('typeR', 'tilt'), g: 'grip' }; }
 const tiltJoint = () => jointTypes().r === 'tilt' ? 'r' : (jointTypes().w === 'tilt' ? 'w' : null);
 const turnJoint = () => jointTypes().w === 'rotate' ? 'w' : (jointTypes().r === 'rotate' ? 'r' : null);
@@ -662,6 +685,7 @@ function loadSettingsUI() {
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   typeW.value = jointTypes().w; typeR.value = jointTypes().r;
+  const rg = jointRanges(); rangeInputs.forEach(i => i.value = rg[i.dataset.j][i.dataset.k]);
   const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
   const am = S.amounts; littleN.value = am.littleN; littleW.value = am.littleW; lotN.value = am.lotN; lotW.value = am.lotW; defN.value = am.defN;
   renderMoves();
@@ -680,6 +704,7 @@ function saveSettings() {
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
     const jw = {}; jointInputs.forEach(i => { jw[i.dataset.j] = jw[i.dataset.j] || {}; jw[i.dataset.j][i.dataset.d] = i.value.trim(); }); set('jointWords', JSON.stringify(jw));
     set('typeW', typeW.value); set('typeR', typeR.value);
+    const rg = jointRanges(); rangeInputs.forEach(i => { const v = parseInt(i.value, 10); if (!isNaN(v)) rg[i.dataset.j][i.dataset.k] = v; }); set('ranges', JSON.stringify(rg));
     set('amounts', JSON.stringify({ littleN: +littleN.value || 15, littleW: littleW.value, lotN: +lotN.value || 45, lotW: lotW.value, defN: +defN.value || 30 }));
     set('moves', JSON.stringify(readMoves()));
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
@@ -761,6 +786,7 @@ $('guideReset').onclick = () => { jointGuide.value = defaultGuide(); saveSetting
   saveSettings(); showToast('Joint types updated - phrases and words refreshed');
   if (threeReady) rebuild3d();
 }));
+$('rangeReset').onclick = () => { localStorage.removeItem('aura.ranges'); const rg = jointRanges(); rangeInputs.forEach(i => i.value = rg[i.dataset.j][i.dataset.k]); saveSettings(); };
 $('jointReset').onclick = () => { const d = defaultJointWords(); jointInputs.forEach(i => i.value = d[i.dataset.j][i.dataset.d]); saveSettings(); };
 kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
@@ -888,6 +914,17 @@ function renderStep(t, st, si) {
 }
 addTaskBtn.onclick = () => { tasks.push({ say: '', reply: '', steps: [] }); saveTasks(); renderTasks(); tasksBox.lastChild.querySelector('.tsay').focus(); };
 
+// Keep any joint command inside the app's limits for that joint
+function limitCmd(cmd) {
+  const m = String(cmd).match(/^([bsewrg]) ([+-]?)(\d+)$/); if (!m) return cmd;
+  const j = m[1], r = jointRanges()[j];
+  if (!m[2]) return `${j} ${clampJoint(j, parseInt(m[3], 10))}`;
+  // relative: clamp using the last known angle when we have one
+  const cur = lastAngles[j]; if (cur === undefined) return cmd;
+  const target = clampJoint(j, cur + (m[2] === '-' ? -1 : 1) * parseInt(m[3], 10));
+  const delta = target - cur; if (delta === 0) return null;
+  return `${j} ${delta > 0 ? '+' : '-'}${Math.abs(delta)}`;
+}
 // Turn a task into commands. "wait:2000" and "say:text" are handled by the runner, not the arm.
 function compileTask(t, depth = 0) {
   const out = [];
@@ -1571,9 +1608,12 @@ async function runGroups(groups) {
         const c = groups[g][i];
         if (c.startsWith('wait:')) { setDoing('Waiting…'); await sleep(parseInt(c.slice(5), 10) || 0); continue; }
         if (c.startsWith('say:'))  { say(c.slice(4)); await sleep(1200); continue; }
-        stepBlip(c); await send(c);
+        const lc = limitCmd(c);
+        if (lc === null) { logLine('[limit] skipped ' + c + ' (already at the limit)'); continue; }
+        if (lc !== c) logLine('[limit] ' + c + ' -> ' + lc);
+        stepBlip(lc); await send(lc);
         setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  '));
-        const travel = moveTime(c);
+        const travel = moveTime(lc);
         if (i < groups[g].length - 1) await sleep(Math.max(S.stepGap * 1000, travel));
         else await sleep(travel);                                            // let the last move finish before "done"
       }
@@ -1667,6 +1707,7 @@ HOW YOU MOVE
 Joint commands: "<joint> <angle>" sets an absolute angle 0-180, "<joint> +N" / "<joint> -N" nudges from where it is now.
 ${S.jointGuide.trim()}
 Current angles: ${cur}
+Joint limits (never go outside): ${J3.map(j => { const r = jointRanges()[j]; return `${j} ${r.min}-${r.max}`; }).join(', ')}
 Also: "open", "close", "home".
 Saved poses (use "go <name>"): ${poseNames.length ? poseNames.join(', ') : 'none'}
 Owner's tasks (use the phrase exactly as a command):
@@ -1876,14 +1917,15 @@ const shown = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };
 function animatePose() {
   const d = x => x * Math.PI / 180;
   for (const j of J3) shown[j] += (pose3[j] - shown[j]) * 0.18;
-  const t = jointTypes();
-  T.base.rotation.y     = d(shown.b - 90);
-  T.shoulder.rotation.x = d(shown.s - 90);
-  T.elbow.rotation.x    = d(shown.e - 90);
+  const t = jointTypes(), rg = jointRanges();
+  const ang = j => (shown[j] - 90) * (rg[j].sweep / 180);              // servo degrees -> real degrees of travel
+  T.base.rotation.y     = d(ang('b'));
+  T.shoulder.rotation.x = d(ang('s'));
+  T.elbow.rotation.x    = d(ang('e'));
   T.wrist.rotation.set(0, 0, 0); T.roll.rotation.set(0, 0, 0);
-  if (t.w === 'rotate') T.wrist.rotation.y = d(shown.w - 90); else T.wrist.rotation.x = d(shown.w - 90);
-  if (t.r === 'rotate') T.roll.rotation.y  = d(shown.r - 90); else T.roll.rotation.x  = d(shown.r - 90);
-  const open = d(5 + (shown.g / 180) * 40);
+  if (t.w === 'rotate') T.wrist.rotation.y = d(ang('w')); else T.wrist.rotation.x = d(ang('w'));
+  if (t.r === 'rotate') T.roll.rotation.y  = d(ang('r')); else T.roll.rotation.x  = d(ang('r'));
+  const open = d(5 + (shown.g / 180) * 40 * (rg.g.sweep / 90));
   T.fingerL.rotation.z = open; T.fingerR.rotation.z = -open;
 }
 function highlight() {
@@ -1897,10 +1939,11 @@ const jointLabel = j => JOINT_LABEL[j] + ((j === 'w' || j === 'r') ? (jointTypes
 function selectJoint(j) {
   sel3 = j; highlight();
   [...$('jointChips').children].forEach(c => c.classList.toggle('on', c.dataset.j === j));
+  const r = jointRanges()[j]; $('jointSlider').min = r.min; $('jointSlider').max = r.max;
   $('jointSlider').value = pose3[j]; $('jointVal').textContent = Math.round(pose3[j]) + '°';
 }
 function setJoint(j, v) {
-  v = Math.max(0, Math.min(180, Math.round(v)));
+  v = clampJoint(j, v);
   pose3[j] = v; $('jointVal').textContent = v + '°'; $('jointSlider').value = v;
   dirty = !!armPose && J3.some(k => armPose[k] !== undefined && toReal(k, pose3[k]) !== armPose[k]);
   $('threePanel').classList.toggle('dirty', dirty);
@@ -2018,7 +2061,7 @@ function enter3d() {
     $('nudgeUp').onclick = () => setJoint(sel3, pose3[sel3] + 5);
     $('readBtn').onclick = read3d;
     $('applyBtn').onclick = apply3d;
-    $('homePoseBtn').onclick = () => { pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: pose3.g }; setJoint(sel3, pose3[sel3]); };
+    $('homePoseBtn').onclick = () => { pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: pose3.g }; J3.forEach(j => pose3[j] = clampJoint(j, pose3[j])); setJoint(sel3, pose3[sel3]); };
     selectJoint('b');
   }
   setTimeout(() => T.resize && T.resize(), 50);
