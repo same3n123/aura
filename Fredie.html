@@ -61,6 +61,10 @@
   @keyframes wiggle-r { 0%, 100% { transform: scaleX(-1) rotate(0); } 50% { transform: scaleX(-1) rotate(-8deg); } }
   #ears svg.r { transform: scaleX(-1); }
 
+  #level { width: 120px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px 0 10px; overflow: hidden; display: none; }
+  #level.show { display: block; }
+  #level i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .08s linear; }
+  #level i.hot { background: var(--bad); }
   #face { width: min(84vw, 380px); aspect-ratio: 3 / 2; position: relative; }
   #face .faceSvg, #face .faceSvg svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
   #face .glow { filter: drop-shadow(0 0 14px var(--glow)) drop-shadow(0 0 3px var(--glow)); }
@@ -144,6 +148,11 @@
   .s-error .ring, .s-error .brow, .s-error .mouth { fill: var(--act); stroke: var(--act); }
   .s-error .ring { fill: var(--act); }
   .s-error .mouth { d: path("M 128 162 Q 150 150 172 162"); }
+  .s-hurt .brow.l { transform: rotate(-14deg) translateY(2px); }
+  .s-hurt .brow.r { transform: rotate(14deg) translateY(2px); }
+  .s-hurt .pupil-g { transform: translate(0, 8px); }
+  .s-hurt .eye-g { transform: scaleY(.8); }
+  .s-hurt .mouth { d: path("M 130 164 Q 150 152 170 164"); }
 
   #toast { position: fixed; top: calc(64px + var(--sat)); left: 50%; transform: translate(-50%, -20px); opacity: 0;
     background: rgba(255,255,255,.94); color: #10131C; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
@@ -165,6 +174,12 @@
   #bottom .spacer { flex: 1; }
 
   /* ---------- sheets ---------- */
+  #tapBtn { padding: 10px; border-radius: 12px; }
+  #tapGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px calc(24px + var(--sab)); }
+  #tapGrid button { min-height: 84px; font-size: 17px; font-weight: 600; border-radius: 18px; background: var(--panel); border: 1px solid var(--line); line-height: 1.25; padding: 12px; white-space: normal; }
+  #tapGrid button.sys { background: var(--bg2); color: var(--muted); font-weight: 500; min-height: 60px; }
+  #tapGrid button.stop { background: var(--bad); color: #fff; grid-column: 1 / -1; min-height: 60px; }
+  #tapGrid button:active { background: var(--act); color: #1A0D00; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; top: 0; background: var(--bg); transform: translateY(100%);
     transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 20; display: flex; flex-direction: column; }
   .sheet.open { transform: translateY(0); }
@@ -211,6 +226,9 @@
   <h1>FREDIE</h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
+  <button id="tapBtn" class="ghost" aria-label="Tap mode">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+  </button>
   <button id="gear" class="ghost" aria-label="Settings">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
   </button>
@@ -224,6 +242,7 @@
     <span>listening</span>
     <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
   </div>
+  <div id="level"><i></i></div>
   <div id="face" class="s-off">
     <div class="faceSvg"></div>
     <div id="working" aria-hidden="true">
@@ -348,6 +367,8 @@
         </select></label>
       <label>Spoken replies
         <select id="talk"><option value="1">On</option><option value="0">Off</option></select></label>
+      <label>Sound effects (chirps)
+        <select id="sfx"><option value="1">On</option><option value="0">Off</option></select></label>
     </div>
 
     <div class="section">
@@ -399,9 +420,25 @@
       <p class="hint">Words it hears but rejects show faintly with a "?" so you can see what the noise sounds like to it. Raise the confidence if it keeps reacting to background sound; lower it if it ignores you.</p>
     </div>
 
+    <div class="section">
+      <h3>Backup</h3>
+      <p class="hint">Everything - tasks, phrases, face, name, joint words - in one file. The API key is not included unless you tick the box.</p>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="expKey" type="checkbox" style="width:auto;margin:0"> include the Claude API key</label>
+      <div class="row2" style="margin-top:8px"><button id="exportBtn">Export to file</button><button id="importBtn">Import from file</button></div>
+      <div class="row2" style="margin-top:8px"><button id="copyBtn">Copy as text</button><button id="pasteBtn">Paste from text</button></div>
+      <input id="importFile" type="file" accept=".json,application/json" style="display:none">
+      <div class="note" id="backupNote"></div>
+    </div>
+
     <div class="row2" style="margin-top:16px"><button id="saveBtn" class="act">Save settings</button></div>
     <div class="note" id="saveNote"></div>
   </div>
+</div>
+
+<!-- ---------- tap mode sheet ---------- -->
+<div id="tapSheet" class="sheet">
+  <header><h2>Tap mode</h2><button id="closeTap" class="ghost">Done</button></header>
+  <div class="body" style="padding:0"><div id="tapGrid"></div></div>
 </div>
 
 <!-- ---------- log sheet ---------- -->
@@ -418,9 +455,10 @@ const $ = id => document.getElementById(id);
 const pill = $('pill'), gear = $('gear'), power = $('power'), face = $('face'), heard = $('heard'), doing = $('doing');
 const typed = $('typed'), askBtn = $('askBtn'), logBtn = $('logBtn'), log = $('log');
 const settings = $('settings'), closeSettings = $('closeSettings'), logSheet = $('logSheet'), closeLog = $('closeLog');
+const tapBtn = $('tapBtn'), tapSheet = $('tapSheet'), closeTap = $('closeTap'), tapGrid = $('tapGrid');
 const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
 
-const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
+const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk'), sfx = $('sfx');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
@@ -448,7 +486,7 @@ const DEFAULT_JOINT_WORDS = {
   g: { '+': 'open',                           '-': 'close' },
 };
 const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
-const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast');
+const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast'), level = $('level'), levelBar = level.querySelector('i');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
 
 // ============================================================
@@ -466,6 +504,7 @@ const S = {
   get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
   get lang() { return LS('lang', 'en-IN'); },
   get talk() { return LS('talk', '1') === '1'; },
+  get sfx() { return LS('sfx', '1') === '1'; },
   get ai() { return LS('ai', '0') === '1'; },
   get apiKey() { return LS('apiKey', ''); },
   get model() { return LS('model', 'claude-sonnet-5'); },
@@ -493,7 +532,7 @@ const S = {
   get amounts() { try { return Object.assign({}, DEFAULT_AMOUNTS, JSON.parse(LS('amounts', '{}'))); } catch (e) { return DEFAULT_AMOUNTS; } },
 };
 function loadSettingsUI() {
-  stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
+  stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
@@ -508,7 +547,7 @@ function saveSettings() {
   try {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
     set('stepGap', stepGap.value); set('groupGap', groupGap.value);
-    set('lang', lang.value); set('talk', talk.value);
+    set('lang', lang.value); set('talk', talk.value); set('sfx', sfx.value);
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
@@ -735,7 +774,52 @@ settings.querySelector('.body').addEventListener('change', e => { if (e.target.m
 gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
+tapBtn.onclick = () => { renderTapGrid(); tapSheet.classList.add('open'); };
+closeTap.onclick = () => tapSheet.classList.remove('open');
+function renderTapGrid() {
+  tapGrid.innerHTML = '';
+  const mk = (label, cls, fn) => { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = () => { chirp('tap'); fn(); }; tapGrid.appendChild(b); return b; };
+  mk('STOP', 'stop', () => { stopEverything(); setDoing('Stopped.'); });
+  const usable = tasks.filter(t => t.say && (t.steps || []).length);
+  if (!usable.length) { const p = document.createElement('p'); p.className = 'hint'; p.style.gridColumn = '1 / -1'; p.textContent = 'No tasks yet. Build some in Settings → Tasks and they appear here as buttons.'; tapGrid.appendChild(p); }
+  usable.forEach(t => mk(t.say, '', () => handleInput(t.say, true)));
+  mk('Home', 'sys', () => handleInput('home', true));
+  mk('Open gripper', 'sys', () => handleInput('open', true));
+  mk('Close gripper', 'sys', () => handleInput('close', true));
+  mk('Relax', 'sys', () => handleInput('relax', true));
+}
 closeLog.onclick = () => logSheet.classList.remove('open');
+
+// ---------- backup ----------
+function exportData() {
+  const data = { app: 'fredie', version: 1, when: new Date().toISOString(), settings: {} };
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('aura.')) data.settings[k] = localStorage.getItem(k); }
+  if (!$('expKey').checked) delete data.settings['aura.apiKey'];
+  return JSON.stringify(data, null, 2);
+}
+function importData(text) {
+  const data = JSON.parse(text);
+  if (!data || data.app !== 'fredie' || !data.settings) throw new Error('not a Fredie backup');
+  for (const [k, v] of Object.entries(data.settings)) if (k.startsWith('aura.') && typeof v === 'string') localStorage.setItem(k, v);
+  loadSettingsUI(); loadTasks(); applyFace();
+  return Object.keys(data.settings).length;
+}
+$('exportBtn').onclick = () => {
+  const blob = new Blob([exportData()], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${S.wakeWord.toLowerCase()}-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  note($('backupNote'), 'Exported.', 'ok');
+};
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try { note($('backupNote'), 'Imported ' + importData(t) + ' settings. Stop and Start listening to rebuild the vocabulary.', 'ok'); } catch (err) { note($('backupNote'), 'Import failed: ' + err.message, 'bad'); } });
+  e.target.value = '';
+};
+$('copyBtn').onclick = async () => { try { await navigator.clipboard.writeText(exportData()); note($('backupNote'), 'Copied to clipboard.', 'ok'); } catch (e) { note($('backupNote'), 'Could not copy: ' + e.message, 'bad'); } };
+$('pasteBtn').onclick = async () => {
+  try { const t = prompt('Paste the backup text here:'); if (t) note($('backupNote'), 'Imported ' + importData(t) + ' settings. Stop and Start listening to rebuild the vocabulary.', 'ok'); }
+  catch (e) { note($('backupNote'), 'Import failed: ' + e.message, 'bad'); }
+};
 
 testBtn.onclick = async () => {
   const key = apiKey.value.trim(); if (!key) { note(keyNote, 'Paste a key first.', 'bad'); return; }
@@ -862,7 +946,7 @@ function holdThenSpeak(alts) {
   } else held = alts.map(a => ({ text: dedupe(a.text), conf: a.conf }));
   setHeard(held[0].text, true);
   clearTimeout(holdTimer);
-  holdTimer = setTimeout(() => { const h = held; held = null; onSpeech(h); }, HOLD_MS);
+  holdTimer = setTimeout(() => { const h = held; held = null; holdTimer = null; if (h && h.length) onSpeech(h); }, HOLD_MS);
 }
 // Which of the engine's guesses (if any) is worth acting on?
 let lastAccepted = { text: '', at: 0 };
@@ -967,19 +1051,48 @@ async function voskStart() {
     const model = await loadVoskModel();
     if (!listening) return;
     voskStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }, video: false });
-    voskCtx = new (window.AudioContext || window.webkitAudioContext)();
+    try { voskCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); }   // the model's native rate
+    catch (e) { voskCtx = new (window.AudioContext || window.webkitAudioContext)(); }
     const clean = m => ((m.result && (m.result.text !== undefined ? m.result.text : m.result.partial)) || '').replace(/\[unk\]/g, '').replace(/\s+/g, ' ').trim();
+    // how sure was it? average per-word confidence, and how much of it was "[unk]" (unknown noise)
+    const quality = m => {
+      const words = (m.result && m.result.result) || [];
+      if (!words.length) return { conf: null, unk: 0 };
+      const unk = words.filter(w => w.word === '[unk]').length / words.length;
+      const known = words.filter(w => w.word !== '[unk]');
+      const conf = known.length ? known.reduce((a, w) => a + (w.conf || 0), 0) / known.length : 0;
+      return { conf, unk };
+    };
+    const onFinal = (which, m) => {
+      const t = clean(m), q = quality(m);
+      if (!t) return;
+      logLine(`[vosk ${which}] "${t}"  conf ${q.conf === null ? '?' : q.conf.toFixed(2)}  unk ${(q.unk * 100).toFixed(0)}%`);
+      if (q.unk >= 0.5) { setHeard(t + ' ?', true); return; }              // mostly noise
+      if (q.conf !== null && q.conf < S.minConf && !understood(t)) { setHeard(t + ' ?', true); return; }   // not sure, and not a known phrase
+      gotResult(which, t);
+    };
     voskRec = new model.KaldiRecognizer(voskCtx.sampleRate, voskGrammar());          // always: our vocabulary
+    voskRec.setWords(true);
     voskRec.on('partialresult', m => { const t = clean(m); if (t && !voskFree && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
-    voskRec.on('result', m => gotResult('g', clean(m)));
+    voskRec.on('result', m => onFinal('g', m));
     if (S.ai) {                                                                          // AI mode adds free speech alongside
       voskFree = new model.KaldiRecognizer(voskCtx.sampleRate);
+      voskFree.setWords(true);
       voskFree.on('partialresult', m => { const t = clean(m); if (t && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
-      voskFree.on('result', m => gotResult('f', clean(m)));
+      voskFree.on('result', m => onFinal('f', m));
     }
     const src = voskCtx.createMediaStreamSource(voskStream);
     voskNode = voskCtx.createScriptProcessor(4096, 1, 1);
-    voskNode.onaudioprocess = e => { if (!speaking && !running) { try { voskRec && voskRec.acceptWaveform(e.inputBuffer); voskFree && voskFree.acceptWaveform(e.inputBuffer); } catch (err) {} } };
+    let meterTick = 0;
+    voskNode.onaudioprocess = e => {
+      if (++meterTick % 3 === 0) {                                     // mic level, a few times a second
+        const d = e.inputBuffer.getChannelData(0); let sum = 0; for (let i = 0; i < d.length; i += 8) sum += d[i] * d[i];
+        const rms = Math.sqrt(sum / (d.length / 8)); const pct = Math.min(100, Math.round(rms * 400));
+        levelBar.style.width = pct + '%'; levelBar.classList.toggle('hot', pct > 85);
+      }
+      if (!speaking && !running) { try { voskRec && voskRec.acceptWaveform(e.inputBuffer); voskFree && voskFree.acceptWaveform(e.inputBuffer); } catch (err) {} }
+    };
+    level.classList.add('show');
     src.connect(voskNode); voskNode.connect(voskCtx.destination);
     micActive = true; updateEars(); logLine('[mic] open (on-device' + (voskFree ? ', vocabulary + free speech' : ', vocabulary') + ')');
     if (awake) setFace('listening'); else setFace('standby');
@@ -996,12 +1109,18 @@ function voskStop() {
   try { voskStream && voskStream.getTracks().forEach(t => t.stop()); } catch (e) {}
   try { voskCtx && voskCtx.close(); } catch (e) {}
   voskNode = voskRec = voskStream = voskCtx = null;
+  level.classList.remove('show');
   micActive = false; updateEars(); logLine('[mic] closed');
 }
 // The mic is never closed for speech or motion any more (closing it makes Chrome pop);
 // instead results are ignored while speaking/running and for a short guard afterwards.
 function micPause() { held = null; clearTimeout(holdTimer); updateEars(); }
-function micResume(ms) { ignoreUntil = Date.now() + (ms || AFTER_REPLY_MS); held = null; setTimeout(updateEars, ms || AFTER_REPLY_MS); updateEars(); }
+function micResume(ms) {
+  ignoreUntil = Date.now() + (ms || AFTER_REPLY_MS); held = null; clearTimeout(holdTimer); holdTimer = null;
+  voskFlush();                                                      // drop whatever the recogniser had half-heard before the pause
+  setTimeout(updateEars, ms || AFTER_REPLY_MS); updateEars();
+}
+function voskFlush() { try { voskRec && voskRec.retrieveFinalResult(); voskFree && voskFree.retrieveFinalResult(); } catch (e) {} pendG = pendF = null; clearTimeout(decideTimer); decideTimer = null; }
 let awake = false, awakeTimer = null;
 function goStandby(quiet) {
   awake = false; clearTimeout(awakeTimer); updateEars();
@@ -1038,16 +1157,66 @@ function stripWake(text) {
   return null;
 }
 
-function beep(freq, ms, vol) {
+// ---------- sound engine (one shared context, opened on the first tap) ----------
+let actx = null;
+function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (actx && actx.state === 'suspended') actx.resume(); return actx; }
+function beep(freq, ms, vol, type) {
+  const c = audio(); if (!c) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'sine'; o.frequency.value = freq || 880; g.gain.value = vol || 0.15;
-    o.connect(g); g.connect(ctx.destination); o.start();
-    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (ms || 160) / 1000);
-    setTimeout(() => { o.stop(); ctx.close(); }, (ms || 160) + 40);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq || 880; g.gain.value = vol || 0.15;
+    o.connect(g); g.connect(c.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + (ms || 160) / 1000);
+    o.stop(c.currentTime + (ms || 160) / 1000 + 0.05);
   } catch (e) {}
 }
+// quick pitch sweep, e.g. a servo "blip"
+function sweep(f1, f2, ms, vol, type) {
+  const c = audio(); if (!c) return;
+  try {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'triangle'; o.frequency.setValueAtTime(f1, c.currentTime); o.frequency.exponentialRampToValueAtTime(f2, c.currentTime + ms / 1000);
+    g.gain.value = vol || 0.08; o.connect(g); g.connect(c.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + ms / 1000); o.stop(c.currentTime + ms / 1000 + 0.05);
+  } catch (e) {}
+}
+// continuous motor whirr while the arm is working
+let whirr = null;
+function startWhirr() {
+  if (!S.sfx || whirr) return; const c = audio(); if (!c) return;
+  try {
+    const o = c.createOscillator(), lfo = c.createOscillator(), lfoG = c.createGain(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 95;
+    lfo.type = 'sine'; lfo.frequency.value = 6; lfoG.gain.value = 6; lfo.connect(lfoG); lfoG.connect(o.frequency);
+    f.type = 'lowpass'; f.frequency.value = 520; f.Q.value = 2;
+    g.gain.value = 0.0001; o.connect(f); f.connect(g); g.connect(c.destination);
+    o.start(); lfo.start();
+    g.gain.exponentialRampToValueAtTime(0.035, c.currentTime + 0.25);      // fade in
+    whirr = { o, lfo, g };
+    sweep(120, 220, 180, 0.06, 'square');                                     // "engage"
+  } catch (e) {}
+}
+function stopWhirr() {
+  if (!whirr) return; const c = audio(), w = whirr; whirr = null;
+  try {
+    w.g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.3);      // fade out
+    setTimeout(() => { try { w.o.stop(); w.lfo.stop(); } catch (e) {} }, 400);
+    sweep(220, 110, 200, 0.06, 'square');                                     // "disengage"
+  } catch (e) {}
+}
+// one short blip per command the arm receives
+function stepBlip(cmd) {
+  if (!S.sfx) return;
+  if (/^(open|close)$/.test(cmd)) { sweep(cmd === 'open' ? 300 : 600, cmd === 'open' ? 600 : 300, 140, 0.08, 'triangle'); return; }
+  if (/^go |^pose /.test(cmd)) { beep(740, 40, 0.07, 'square'); setTimeout(() => beep(990, 60, 0.07, 'square'), 60); return; }
+  if (/^[bsewrg] /.test(cmd)) { const n = Math.abs(parseInt(cmd.slice(2), 10)) || 30; sweep(500, 500 + Math.min(n, 90) * 6, 70 + Math.min(n, 90), 0.07, 'triangle'); return; }
+  beep(660, 50, 0.06, 'square');
+}
+// soft ticking while the AI thinks
+let thinkTimer = null;
+function startThinking() { if (!S.sfx || thinkTimer) return; thinkTimer = setInterval(() => beep(1200 + Math.random() * 400, 25, 0.04, 'square'), 260); }
+function stopThinking() { clearInterval(thinkTimer); thinkTimer = null; }
+
 function startListening() {
   if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
   listening = true; if (rec) rec.lang = S.lang; startRec();
@@ -1207,14 +1376,14 @@ function resolveGroup(part) {
 // ============================================================
 let running = false;
 async function runGroups(groups) {
-  running = true; setFace('moving'); micPause();
+  running = true; setFace('moving'); micPause(); startWhirr();
   try {
     for (let g = 0; g < groups.length && running; g++) {
       for (let i = 0; i < groups[g].length && running; i++) {
         const c = groups[g][i];
         if (c.startsWith('wait:')) { setDoing('Waiting…'); await sleep(parseInt(c.slice(5), 10) || 0); continue; }
         if (c.startsWith('say:'))  { say(c.slice(4)); await sleep(1200); continue; }
-        await send(c);
+        stepBlip(c); await send(c);
         setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  ') + (i < groups[g].length - 1 ? '' : ''));
         if (i < groups[g].length - 1) await sleep(S.stepGap * 1000);
       }
@@ -1222,12 +1391,12 @@ async function runGroups(groups) {
     }
     if (running) {
       const reply = [...groups].reverse().map(g => g.reply).find(Boolean);   // last shortcut that has a reply
-      setDoing(reply || 'Done.'); setFace('happy', 1800); say(reply || pickOne(['Done!', 'All done.', 'There you go.', 'Easy.', 'Sorted.']));
+      setDoing(reply || 'Done.'); setFace('happy', 1800); chirp('done'); say(reply || pickOne(['Done!', 'All done.', 'There you go.', 'Easy.', 'Sorted.']));
     } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
   } catch (e) { setDoing('Send failed: ' + e.message, true); }
-  running = false; micResume(AFTER_REPLY_MS);
+  stopWhirr(); running = false; micResume(AFTER_REPLY_MS);
 }
-function stopEverything() { running = false; micResume(AFTER_REPLY_MS); }
+function stopEverything() { running = false; stopWhirr(); stopThinking(); micResume(AFTER_REPLY_MS); }
 
 async function handleInput(raw, typedIn, conf) {
   logLine('[you] ' + raw);
@@ -1241,8 +1410,8 @@ async function handleInput(raw, typedIn, conf) {
       if (!awake) wakeUp();
       touchAwake();
       whole = rest;
-      if (!whole) { setFace('happy', 2500); showToast('Awake'); if (justWoke) say(`I am ${S.wakeWord} and I am ready to rock and roll!`); else say('Yes?'); return; }
-      if (justWoke) { setFace('happy', 1500); say(`I am ${S.wakeWord} and I am ready to rock and roll!`); }
+      if (!whole) { setFace('happy', 2500); showToast('Awake'); if (justWoke) { chirp('wake'); say(`${timeGreeting()} I am ${S.wakeWord} and I am ready to rock and roll!`); gesture('wiggle'); } else say('Yes?'); return; }
+      if (justWoke) { chirp('wake'); setFace('happy', 1500); say(`${timeGreeting()} I am ${S.wakeWord}, ready to rock and roll!`); }
     } else if (!awake) {
       logLine('[ignored] not awake and no "' + S.wakeWord + '" heard');
       if (understood(whole)) { setDoing(`Say "${S.wakeWord}" first to wake me up`); setHeard(whole + ' ?', true); }
@@ -1254,15 +1423,19 @@ async function handleInput(raw, typedIn, conf) {
   const low = whole.toLowerCase().replace(/[.!?]+$/, '').trim();
 
   // ---- small talk and control words ----
-  if (/^(stop|halt|wait|cancel|freeze)$/.test(low)) { if (running) { stopEverything(); setDoing('Stopped.'); say('Okay, stopping.'); } return; }
-  if (/^(go to sleep|sleep|good night|goodbye|bye)$/.test(low)) { goStandby(); return; }
+  if (/^(stop|halt|wait|cancel|freeze)$/.test(low)) { if (running) { stopEverything(); setDoing('Stopped.'); chirp('hurt'); setFace('hurt', 2500); say(pickOne(['Okay, stopping.', 'Oh. Stopping.', 'Alright, alright.'])); } return; }
+  if (/^(go to sleep|sleep|good night|goodbye|bye)$/.test(low)) { chirp('sleep'); goStandby(); return; }
   if (/^(stop listening|switch off|shut down)$/.test(low)) { say('Okay, switching off. See you soon!'); stopListening(); return; }
   if (/^(hello|hi|hey|hey there|hello there|good morning|good afternoon|good evening|namaste)$/.test(low)) {
-    setFace('happy', 2000); setDoing('Hello!'); say(pickOne([`Hey there! ${S.wakeWord} at your service.`, `Hello! Great to see you. What shall we do?`, `Hi! I'm ${S.wakeWord}. Ready when you are.`])); return;
+    setFace('happy', 2000); setDoing('Hello!'); say(pickOne([`Hey there! ${S.wakeWord} at your service.`, `Hello! Great to see you. What shall we do?`, `Hi! I'm ${S.wakeWord}. Ready when you are.`])); gesture('wave'); return;
   }
   if (running) { setDoing('Still moving.'); showToast('Still moving'); logLine('[busy] ignored: ' + low); return; }
   if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your friendly robot arm. Six joints, zero coffee breaks.`); return; }
-  if (/^(thank you|thanks|good job|well done|nice|awesome|great)$/.test(low)) { setFace('happy', 2000); say(pickOne([`Anytime!`, `You're welcome!`, `Happy to help.`, `That's what I'm here for.`])); return; }
+  if (/^(thank you|thanks|good job|well done|nice|awesome|great|good boy|good girl|good robot|i love you|you are the best|you're the best)$/.test(low)) {
+    setFace('happy', 2500); chirp('done'); say(pickOne([`Anytime!`, `You're welcome!`, `Happy to help.`, `That's what I'm here for.`, `Aw, stop it. No, don't.`])); gesture('wiggle'); return;
+  }
+  if (/^(bad robot|you are useless|you're useless|stupid|shut up)$/.test(low)) { setFace('hurt', 3000); chirp('hurt'); say(pickOne(['Ouch.', "I'm trying my best here.", 'That stings, you know.'])); gesture('sulk'); return; }
+  if (/^(yes|yeah|no|nope)$/.test(low)) { gesture(/^(yes|yeah)$/.test(low) ? 'nod' : 'wiggle'); return; }
 
   const parts = low.split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
   const groups = parts.map(resolveGroup);
@@ -1337,10 +1510,11 @@ function validateAI(cmds) {
 }
 async function askAI(text) {
   if (!S.apiKey) { setDoing('AI mode is on but there is no API key in Settings.', true); showToast('No API key'); say('I need an API key first'); return; }
-  setFace('thinking'); setDoing('Thinking…'); showToast('Thinking…', 4000);
+  setFace('thinking'); setDoing('Thinking…'); showToast('Thinking…', 4000); startThinking();
   try {
     await readAngles();
     const out = JSON.parse(await claude(aiSystem(), text));
+    stopThinking();
     const cmds = validateAI(out.commands);
     logLine('[ai] ' + JSON.stringify(out));
     if (out.understood === false || (!cmds.length && !out.say)) { await confused(out.say); return; }   // AI is lost: varied line + head-shake
@@ -1349,6 +1523,7 @@ async function askAI(text) {
     if (!rxChar) { setDoing('Not connected to the arm.', true); showToast('Not connected to the arm'); return; }
     await runGroups([cmds]);
   } catch (e) {
+    stopThinking();
     setDoing('AI error: ' + e.message, true); logLine('[ai error] ' + e.message);
     showToast('AI did not answer'); say('My brain glitched. Try that again?');
     setFace(awake ? 'listening' : 'standby');
@@ -1358,6 +1533,30 @@ askBtn.onclick = () => handleInput(typed.value, true);
 typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
 
 function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+// small body-language moves, run quietly (no reply, no "Done")
+const GESTURES = {
+  wiggle: ['b +12', 'b -24', 'b +12'],
+  nod:    ['w -15', 'w +15'],
+  wave:   ['r +30', 'r -60', 'r +30'],
+  shrug:  ['s +8', 's -8'],
+  bow:    ['s -20', 's +20'],
+  sulk:   ['w -10', 's +6'],
+};
+async function gesture(name) {
+  const cmds = GESTURES[name]; if (!cmds || !rxChar || running) return;
+  running = true; micPause(); startWhirr();
+  try { for (const c of cmds) { stepBlip(c); await send(c); await sleep(650); } } catch (e) {}
+  stopWhirr(); running = false; micResume(800);
+}
+function timeGreeting() {
+  const h = new Date().getHours();
+  if (h < 5)  return pickOne(['Up late?', 'Night owl mode.']);
+  if (h < 12) return pickOne(['Good morning!', 'Morning! Coffee first?', 'Rise and shine!']);
+  if (h < 17) return pickOne(['Good afternoon!', 'Afternoon!']);
+  if (h < 21) return pickOne(['Good evening!', 'Evening!']);
+  return pickOne(['Working late, are we?', 'Evening!']);
+}
 
 const CONFUSED_LINES = [
   "Oh no! I didn't get you!", "Hmm, that one flew right past me.", "Sorry, my circuits are puzzled.",
@@ -1371,12 +1570,12 @@ async function confused(customLine) {
   let i; do { i = Math.floor(Math.random() * CONFUSED_LINES.length); } while (i === lastConfused && CONFUSED_LINES.length > 1);
   lastConfused = i;
   const line = customLine || CONFUSED_LINES[i];
-  setDoing(line); setFace('error', 2600); say(line);
+  setDoing(line); setFace('error', 2600); chirp('confused'); say(line);
   if (rxChar && !running) {
-    running = true; micPause();
+    running = true; micPause(); startWhirr();
     try { await send('b +30'); await sleep(700); await send('b -60'); await sleep(900); await send('b +30'); await sleep(600); }
     catch (e) {}
-    running = false; micResume(AFTER_REPLY_MS);
+    stopWhirr(); running = false; micResume(AFTER_REPLY_MS);
   }
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
