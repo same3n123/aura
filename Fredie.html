@@ -74,9 +74,9 @@
   .threeBtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
   .threeBtns button { padding: 13px 8px; font-size: 14px; }
   #threeStatus { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 1.3em; }
-  #mirrorRow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); align-items: center; }
-  #mirrorRow label { margin: 0; display: flex; align-items: center; gap: 3px; font-size: 12px; }
-  #mirrorRow input { width: auto; margin: 0; }
+  #wizard { margin-top: 10px; background: var(--panel); border: 1px solid var(--eye); border-radius: 14px; padding: 12px; }
+  #wizText { font-size: 14px; line-height: 1.4; }
+  #wizText b { color: var(--eye); }
   .dirty #applyBtn { background: var(--act); color: #1A0D00; }
 
   /* ---------- top bar ---------- */
@@ -301,7 +301,11 @@
       <button id="applyBtn" class="act">Send to arm</button>
     </div>
     <div id="threeStatus">Connect, then Read from arm.</div>
-    <div id="mirrorRow"><span>Mirror:</span></div>
+    <div class="row2" style="margin-top:8px"><button id="calibBtn">Calibrate model</button><button id="adjustBtn">Adjust this joint</button></div>
+    <div id="wizard" hidden>
+      <div id="wizText"></div>
+      <div class="row2" style="margin-top:8px"><button id="wizCancel">Cancel</button><button id="wizNext" class="act">Next</button></div>
+    </div>
   </div>
 </div>
 
@@ -309,7 +313,7 @@
 <div id="chatMode" class="mode">
 <div id="bar">
   <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.0</small></h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.1</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -1734,7 +1738,13 @@ const J3 = ['b', 's', 'e', 'w', 'r', 'g'];
 let pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };   // what the model shows
 let armPose = null;                            // what the arm last reported
 let sel3 = 'b', threeReady = false, dirty = false;
-const mirror = () => { try { return Object.assign({ b: 0, s: 0, e: 0, w: 0, r: 0, g: 0 }, JSON.parse(LS('mirror3', '{}'))); } catch (e) { return { b: 0, s: 0, e: 0, w: 0, r: 0, g: 0 }; } };
+// Per-joint mapping between the arm's real angle and the model's angle:  model = m1 + sign * (real - r1)
+const DEFAULT_MAP = { r1: 90, m1: 90, sign: 1 };
+function calib3() { try { const c = JSON.parse(LS('calib3', '{}')); const out = {}; J3.forEach(j => out[j] = Object.assign({}, DEFAULT_MAP, c[j] || {})); return out; } catch (e) { const out = {}; J3.forEach(j => out[j] = { ...DEFAULT_MAP }); return out; } }
+function saveCalib3(c) { localStorage.setItem('aura.calib3', JSON.stringify(c)); }
+const clamp180 = v => Math.max(0, Math.min(180, Math.round(v)));
+function toModel(j, real) { const c = calib3()[j]; return clamp180(c.m1 + c.sign * (real - c.r1)); }
+function toReal(j, model) { const c = calib3()[j]; return clamp180(c.r1 + c.sign * (model - c.m1)); }
 
 function build3d() {
   const box = $('three');
@@ -1816,15 +1826,14 @@ function build3d() {
 // smooth the model toward pose3
 const shown = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };
 function animatePose() {
-  const m = mirror(), d = x => x * Math.PI / 180;
+  const d = x => x * Math.PI / 180;
   for (const j of J3) shown[j] += (pose3[j] - shown[j]) * 0.18;
-  const sg = j => (m[j] ? -1 : 1);
-  T.base.rotation.y     = d((shown.b - 90) * sg('b'));
-  T.shoulder.rotation.x = d((shown.s - 90) * sg('s'));
-  T.elbow.rotation.x    = d((shown.e - 90) * sg('e'));
-  T.wrist.rotation.x    = d((shown.w - 90) * sg('w'));
-  T.roll.rotation.y     = d((shown.r - 90) * sg('r'));
-  const open = d(5 + (shown.g / 180) * 40 * (m.g ? -1 : 1) + (m.g ? 40 : 0));
+  T.base.rotation.y     = d(shown.b - 90);
+  T.shoulder.rotation.x = d(shown.s - 90);
+  T.elbow.rotation.x    = d(shown.e - 90);
+  T.wrist.rotation.x    = d(shown.w - 90);
+  T.roll.rotation.y     = d(shown.r - 90);
+  const open = d(5 + (shown.g / 180) * 40);
   T.fingerL.rotation.z = open; T.fingerR.rotation.z = -open;
 }
 function highlight() {
@@ -1842,7 +1851,7 @@ function selectJoint(j) {
 function setJoint(j, v) {
   v = Math.max(0, Math.min(180, Math.round(v)));
   pose3[j] = v; $('jointVal').textContent = v + '°'; $('jointSlider').value = v;
-  dirty = !!armPose && J3.some(k => pose3[k] !== armPose[k]);
+  dirty = !!armPose && J3.some(k => armPose[k] !== undefined && toReal(k, pose3[k]) !== armPose[k]);
   $('threePanel').classList.toggle('dirty', dirty);
   $('threeStatus').textContent = dirty ? 'Pose changed - tap Send to arm when ready.' : (armPose ? 'Matches the arm.' : 'Connect, then Read from arm.');
 }
@@ -1851,36 +1860,100 @@ async function read3d() {
   $('threeStatus').textContent = 'Reading the arm…';
   await readAngles();
   if (!Object.keys(angles).length) { $('threeStatus').textContent = 'The arm did not answer.'; return; }
-  armPose = { ...pose3, ...angles }; pose3 = { ...armPose };
+  armPose = { ...angles };
+  J3.forEach(j => { if (armPose[j] !== undefined) pose3[j] = toModel(j, armPose[j]); });
   selectJoint(sel3); setJoint(sel3, pose3[sel3]);
-  $('threeStatus').textContent = 'Synced with the arm.';
+  $('threeStatus').textContent = calibrated() ? 'Synced with the arm.' : 'Synced. Tap "Calibrate model" once so the model matches the real arm.';
 }
 async function apply3d() {
   if (!rxChar) { $('threeStatus').textContent = 'Not connected.'; return; }
-  const cmd = 'pose ' + J3.map(j => Math.round(pose3[j])).join(' ');
+  const cmd = 'pose ' + J3.map(j => toReal(j, pose3[j])).join(' ');
   $('threeStatus').textContent = 'Sending… ' + cmd; $('applyBtn').disabled = true;
   startWhirr(); stepBlip('pose');
   try {
     await send(cmd);
-    const travel = Math.max(...J3.map(j => 250 + Math.abs(pose3[j] - (armPose ? armPose[j] : 90)) * 26), 800);
+    const travel = Math.max(...J3.map(j => 250 + Math.abs(toReal(j, pose3[j]) - (armPose && armPose[j] !== undefined ? armPose[j] : 90)) * 26), 800);
     await sleep(travel);
     stopWhirr(); chirp('done');
     await readAngles();
-    if (Object.keys(angles).length) { armPose = { ...pose3, ...angles }; }
-    else armPose = { ...pose3 };
+    if (Object.keys(angles).length) armPose = { ...angles }; else { armPose = {}; J3.forEach(j => armPose[j] = toReal(j, pose3[j])); }
+    J3.forEach(j => { if (armPose[j] !== undefined) pose3[j] = toModel(j, armPose[j]); });
     setJoint(sel3, pose3[sel3]);
     $('threeStatus').textContent = 'Done. The arm is there.';
   } catch (e) { stopWhirr(); $('threeStatus').textContent = 'Send failed: ' + e.message; }
   $('applyBtn').disabled = false;
 }
+function calibrated() { return localStorage.getItem('aura.calib3') !== null; }
+
+// ---- guided two-point calibration ----
+let wiz = null;
+const wizard = () => $('wizard'), wizText = () => $('wizText');
+function wizShow(html) { wizard().hidden = false; wizText().innerHTML = html; }
+function wizEnd(msg) { wiz = null; wizard().hidden = true; $('threeStatus').textContent = msg || ''; $('calibBtn').disabled = false; }
+async function startCalib() {
+  if (!rxChar) { $('threeStatus').textContent = 'Connect first.'; return; }
+  await readAngles(); if (!Object.keys(angles).length) { $('threeStatus').textContent = 'The arm did not answer.'; return; }
+  armPose = { ...angles };
+  wiz = { i: 0, phase: 'a', c: calib3() };
+  $('calibBtn').disabled = true;
+  wizStep();
+}
+function wizStep() {
+  const j = J3[wiz.i]; selectJoint(j);
+  if (wiz.phase === 'a') {
+    // start each joint's model at its saved mapping so re-calibration begins close
+    pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 1 of 2<br>Look at the real arm. Drag the slider until the model's ${JOINT_LABEL[j].toLowerCase()} looks the same, then tap Next.`);
+  } else {
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 2<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
+  }
+}
+async function wizNext() {
+  if (!wiz) return;
+  const j = J3[wiz.i];
+  if (wiz.phase === 'a') {
+    wiz.r1 = armPose[j]; wiz.m1 = pose3[j];
+    wiz.delta = wiz.r1 > 135 ? -30 : 30;
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · moving the arm ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°…`); $('wizNext').disabled = true;
+    startWhirr(); try { await send(`${j} ${wiz.delta > 0 ? '+' : ''}${wiz.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
+    await readAngles(); armPose = { ...angles };
+    wiz.r2 = armPose[j] !== undefined ? armPose[j] : wiz.r1 + wiz.delta;
+    $('wizNext').disabled = false; wiz.phase = 'b'; wizStep();
+  } else {
+    const m2 = pose3[j];
+    const dm = m2 - wiz.m1, dr = wiz.r2 - wiz.r1;
+    let sign = wiz.c[j].sign;
+    if (Math.abs(dm) >= 5 && Math.abs(dr) >= 5) sign = (dm * dr > 0) ? 1 : -1;
+    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, sign };
+    saveCalib3(wiz.c);
+    // put the arm back where it was
+    startWhirr(); try { await send(`${j} ${wiz.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
+    await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
+    wiz.i++; wiz.phase = 'a';
+    if (wiz.i >= J3.length) { wizEnd('Calibrated. The model now follows the real arm.'); chirp('done'); return; }
+    wizStep();
+  }
+}
+function adjustJoint() {
+  if (!armPose || armPose[sel3] === undefined) { $('threeStatus').textContent = 'Read from arm first.'; return; }
+  wiz = { adjust: true };
+  wizShow(`<b>${JOINT_LABEL[sel3]}</b> · adjust<br>Drag the slider until the model matches the real arm, then tap Done.`);
+  $('wizNext').textContent = 'Done';
+  $('wizNext').onclick = () => {
+    const c = calib3(); c[sel3] = { r1: armPose[sel3], m1: pose3[sel3], sign: c[sel3].sign }; saveCalib3(c);
+    $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext;
+    wizEnd(JOINT_LABEL[sel3] + ' adjusted.'); setJoint(sel3, pose3[sel3]);
+  };
+}
+
 function enter3d() {
   if (!threeReady) {
     if (typeof THREE === 'undefined') { $('threeStatus').textContent = '3D library did not load (no internet?).'; return; }
     build3d();
     const chips = $('jointChips');
     J3.forEach(j => { const b = document.createElement('button'); b.dataset.j = j; b.textContent = JOINT_LABEL[j]; b.onclick = () => selectJoint(j); chips.appendChild(b); });
-    const mr = $('mirrorRow'), m = mirror();
-    J3.forEach(j => { const l = document.createElement('label'); l.innerHTML = `<input type="checkbox" data-j="${j}" ${m[j] ? 'checked' : ''}> ${j}`; l.querySelector('input').onchange = e => { const mm = mirror(); mm[j] = e.target.checked ? 1 : 0; localStorage.setItem('aura.mirror3', JSON.stringify(mm)); }; mr.appendChild(l); });
+    $('calibBtn').onclick = startCalib; $('adjustBtn').onclick = adjustJoint;
+    $('wizNext').onclick = wizNext; $('wizCancel').onclick = () => { $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext; wizEnd('Cancelled.'); };
     $('jointSlider').oninput = e => setJoint(sel3, +e.target.value);
     $('nudgeDown').onclick = () => setJoint(sel3, pose3[sel3] - 5);
     $('nudgeUp').onclick = () => setJoint(sel3, pose3[sel3] + 5);
