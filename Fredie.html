@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Fredie</title>
 <meta name="theme-color" content="#070B14">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -317,7 +320,7 @@
 <div id="chatMode" class="mode">
 <div id="bar">
   <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.4</small></h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.6</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -423,13 +426,13 @@
       <p class="hint">What the two joints above the elbow physically do. Everything - the 3D model, "look down", "twist", the AI's guide - follows this.</p>
       <label>Wrist (w, channel 3)<select id="typeW"><option value="rotate">turns / rotates the gripper</option><option value="tilt">tilts up and down</option></select></label>
       <label>Roll (r, channel 4)<select id="typeR"><option value="tilt">tilts up and down</option><option value="rotate">turns / rotates the gripper</option></select></label>
-      <p class="hint" style="margin-top:14px">How far each joint really moves. "Sweep" is the total physical travel across the servo's full 0-180. Limits are the servo angles the app will never go past.</p>
+      <p class="hint" style="margin-top:14px">Servo angles the app will never go past. How far each joint really travels is learned in 3D mode → Calibrate model.</p>
       <table id="rangeTbl">
-        <thead><tr><th>Joint</th><th>Sweep °</th><th>Min</th><th>Max</th></tr></thead>
+        <thead><tr><th>Joint</th><th>Min</th><th>Max</th></tr></thead>
         <tbody>
-          <tr><td>Wrist (w)</td><td><input data-j="w" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="w" data-k="min" type="number" min="0" max="180"></td><td><input data-j="w" data-k="max" type="number" min="0" max="180"></td></tr>
-          <tr><td>Roll (r)</td><td><input data-j="r" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="r" data-k="min" type="number" min="0" max="180"></td><td><input data-j="r" data-k="max" type="number" min="0" max="180"></td></tr>
-          <tr><td>Gripper (g)</td><td><input data-j="g" data-k="sweep" type="number" min="10" max="360"></td><td><input data-j="g" data-k="min" type="number" min="0" max="180"></td><td><input data-j="g" data-k="max" type="number" min="0" max="180"></td></tr>
+          <tr><td>Wrist (w)</td><td><input data-j="w" data-k="min" type="number" min="0" max="180"></td><td><input data-j="w" data-k="max" type="number" min="0" max="180"></td></tr>
+          <tr><td>Roll (r)</td><td><input data-j="r" data-k="min" type="number" min="0" max="180"></td><td><input data-j="r" data-k="max" type="number" min="0" max="180"></td></tr>
+          <tr><td>Gripper (g)</td><td><input data-j="g" data-k="min" type="number" min="0" max="180"></td><td><input data-j="g" data-k="max" type="number" min="0" max="180"></td></tr>
         </tbody>
       </table>
       <div class="row2" style="margin-top:8px"><button id="rangeReset">Reset ranges</button></div>
@@ -563,6 +566,21 @@
 </div>
 
 <script>
+// ---- self-update: fetch our own file fresh from the server and reload if it is newer ----
+const APP_VERSION = (document.getElementById('ver') || {}).textContent || '';
+(async () => {
+  try {
+    if (location.protocol === 'file:') return;
+    const r = await fetch(location.pathname + '?fresh=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const m = (await r.text()).match(/id="ver"[^>]*>(v[\d.]+)</);
+    if (m && m[1] !== APP_VERSION) {
+      const url = location.pathname + '?v=' + Date.now();
+      sessionStorage.setItem('aura.updatedTo', m[1]);
+      location.replace(url);
+    }
+  } catch (e) {}
+})();
 window.onerror = (m, s, l) => setDoing('Page error (line ' + l + '): ' + m, true);
 window.onunhandledrejection = e => setDoing('Error: ' + (e.reason && e.reason.message || e.reason), true);
 
@@ -583,8 +601,8 @@ const tasksBox = $('tasks'), addTaskBtn = $('addTask');
 const moveRows = $('moveRows'), addMoveBtn = $('addMove'), movesResetBtn = $('movesReset');
 const littleN = $('littleN'), littleW = $('littleW'), lotN = $('lotN'), lotW = $('lotW'), defN = $('defN');
 // bottom three are MG996R (full 180); the top three are SG90s on 90-degree joints
-const DEFAULT_RANGES = { b: { sweep: 180, min: 0, max: 180 }, s: { sweep: 180, min: 0, max: 180 }, e: { sweep: 180, min: 0, max: 180 },
-                         w: { sweep: 90, min: 45, max: 135 }, r: { sweep: 90, min: 45, max: 135 }, g: { sweep: 90, min: 0, max: 180 } };
+const DEFAULT_RANGES = { b: { min: 0, max: 180 }, s: { min: 0, max: 180 }, e: { min: 0, max: 180 },
+                         w: { min: 45, max: 135 }, r: { min: 45, max: 135 }, g: { min: 0, max: 180 } };
 function jointRanges() {
   try { const r = JSON.parse(LS('ranges', '{}')); const out = {}; for (const j in DEFAULT_RANGES) out[j] = Object.assign({}, DEFAULT_RANGES[j], r[j] || {}); return out; }
   catch (e) { return JSON.parse(JSON.stringify(DEFAULT_RANGES)); }
@@ -942,6 +960,7 @@ function compileTask(t, depth = 0) {
 
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
 try { loadSettingsUI(); loadTasks(); } catch (e) {}
+try { const u = sessionStorage.getItem('aura.updatedTo'); if (u) { sessionStorage.removeItem('aura.updatedTo'); setTimeout(() => showToast('Updated to ' + u, 3000), 600); } } catch (e) {}
 saveBtn.onclick = saveSettings;
 settings.querySelector('.body').addEventListener('change', e => { if (e.target.matches('input, select, textarea')) saveSettings(); });
 gear.onclick = () => { if (!listening) settings.classList.add('open'); };
@@ -1821,12 +1840,13 @@ let pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };   // what the model sh
 let armPose = null;                            // what the arm last reported
 let sel3 = 'b', threeReady = false, dirty = false;
 // Per-joint mapping between the arm's real angle and the model's angle:  model = m1 + sign * (real - r1)
-const DEFAULT_MAP = { r1: 90, m1: 90, sign: 1 };
+const DEFAULT_MAP = { r1: 90, m1: 90, k: 1 };          // model = m1 + k * (real - r1);  k carries direction and scale
 function calib3() { try { const c = JSON.parse(LS('calib3', '{}')); const out = {}; J3.forEach(j => out[j] = Object.assign({}, DEFAULT_MAP, c[j] || {})); return out; } catch (e) { const out = {}; J3.forEach(j => out[j] = { ...DEFAULT_MAP }); return out; } }
 function saveCalib3(c) { localStorage.setItem('aura.calib3', JSON.stringify(c)); }
 const clamp180 = v => Math.max(0, Math.min(180, Math.round(v)));
-function toModel(j, real) { const c = calib3()[j]; return clamp180(c.m1 + c.sign * (real - c.r1)); }
-function toReal(j, model) { const c = calib3()[j]; return clamp180(c.r1 + c.sign * (model - c.m1)); }
+function kOf(c) { if (c.k !== undefined) return c.k; return c.sign !== undefined ? c.sign : 1; }   // old saves had only a sign
+function toModel(j, real) { const c = calib3()[j]; return clamp180(c.m1 + kOf(c) * (real - c.r1)); }
+function toReal(j, model) { const c = calib3()[j]; const k = kOf(c) || 1; return clamp180(c.r1 + (model - c.m1) / k); }
 
 function build3d() {
   const box = $('three');
@@ -1918,14 +1938,14 @@ function animatePose() {
   const d = x => x * Math.PI / 180;
   for (const j of J3) shown[j] += (pose3[j] - shown[j]) * 0.18;
   const t = jointTypes(), rg = jointRanges();
-  const ang = j => (shown[j] - 90) * (rg[j].sweep / 180);              // servo degrees -> real degrees of travel
+  const ang = j => (shown[j] - 90);                                    // model degrees are real degrees (calibration learned the scale)
   T.base.rotation.y     = d(ang('b'));
   T.shoulder.rotation.x = d(ang('s'));
   T.elbow.rotation.x    = d(ang('e'));
   T.wrist.rotation.set(0, 0, 0); T.roll.rotation.set(0, 0, 0);
   if (t.w === 'rotate') T.wrist.rotation.y = d(ang('w')); else T.wrist.rotation.x = d(ang('w'));
   if (t.r === 'rotate') T.roll.rotation.y  = d(ang('r')); else T.roll.rotation.x  = d(ang('r'));
-  const open = d(5 + (shown.g / 180) * 40 * (rg.g.sweep / 90));
+  const open = d(5 + (shown.g / 180) * 40);
   T.fingerL.rotation.z = open; T.fingerR.rotation.z = -open;
 }
 function highlight() {
@@ -1939,11 +1959,13 @@ const jointLabel = j => JOINT_LABEL[j] + ((j === 'w' || j === 'r') ? (jointTypes
 function selectJoint(j) {
   sel3 = j; highlight();
   [...$('jointChips').children].forEach(c => c.classList.toggle('on', c.dataset.j === j));
-  const r = jointRanges()[j]; $('jointSlider').min = r.min; $('jointSlider').max = r.max;
+  const r = jointRanges()[j];
+  if (wiz) { $('jointSlider').min = 0; $('jointSlider').max = 180; }
+  else { const a = toModel(j, r.min), b = toModel(j, r.max); $('jointSlider').min = Math.min(a, b); $('jointSlider').max = Math.max(a, b); }
   $('jointSlider').value = pose3[j]; $('jointVal').textContent = Math.round(pose3[j]) + '°';
 }
 function setJoint(j, v) {
-  v = clampJoint(j, v);
+  v = wiz ? clamp180(v) : clamp180(Math.max(+$('jointSlider').min, Math.min(+$('jointSlider').max, v)));
   pose3[j] = v; $('jointVal').textContent = v + '°'; $('jointSlider').value = v;
   dirty = !!armPose && J3.some(k => armPose[k] !== undefined && toReal(k, pose3[k]) !== armPose[k]);
   $('threePanel').classList.toggle('dirty', dirty);
@@ -1990,14 +2012,19 @@ async function startCalib() {
   armPose = { ...angles };
   wiz = { i: 0, phase: 'a', c: calib3() };
   $('calibBtn').disabled = true;
-  wizStep();
+  await wizStep();
 }
-function wizStep() {
+async function wizStep() {
   const j = J3[wiz.i]; selectJoint(j);
   if (wiz.phase === 'a') {
-    // start each joint's model at its saved mapping so re-calibration begins close
-    pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 1 of 2<br>Look at the real arm. Drag the slider until the model's ${JOINT_LABEL[j].toLowerCase()} looks the same, then tap Next.`);
+    // put the real joint at a known reference (90, or the nearest allowed angle)
+    const ref = clampJoint(j, 90);
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · moving to ${ref}°…`); $('wizNext').disabled = true;
+    startWhirr(); try { await send(`${j} ${ref}`); await sleep(1400); } catch (e) {} stopWhirr();
+    await readAngles(); armPose = { ...angles }; wiz.ref = armPose[j] !== undefined ? armPose[j] : ref;
+    pose3[j] = 90; setJoint(j, 90);                          // model starts straight; you bend it to match
+    $('wizNext').disabled = false;
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 1 of 2<br>The real ${JOINT_LABEL[j].toLowerCase()} is at ${wiz.ref}°. Drag the slider until the model looks the same, then tap Next.`);
   } else {
     wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 2<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
   }
@@ -2006,8 +2033,9 @@ async function wizNext() {
   if (!wiz) return;
   const j = J3[wiz.i];
   if (wiz.phase === 'a') {
-    wiz.r1 = armPose[j]; wiz.m1 = pose3[j];
-    wiz.delta = wiz.r1 > 135 ? -30 : 30;
+    wiz.r1 = wiz.ref; wiz.m1 = pose3[j];
+    const rg = jointRanges()[j];
+    wiz.delta = (wiz.r1 + 30 <= rg.max) ? 30 : -30;           // move 30 in whichever direction stays inside the limits
     wizShow(`<b>${JOINT_LABEL[j]}</b> · moving the arm ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°…`); $('wizNext').disabled = true;
     startWhirr(); try { await send(`${j} ${wiz.delta > 0 ? '+' : ''}${wiz.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
     await readAngles(); armPose = { ...angles };
@@ -2016,15 +2044,19 @@ async function wizNext() {
   } else {
     const m2 = pose3[j];
     const dm = m2 - wiz.m1, dr = wiz.r2 - wiz.r1;
-    let sign = wiz.c[j].sign;
-    if (Math.abs(dm) >= 5 && Math.abs(dr) >= 5) sign = (dm * dr > 0) ? 1 : -1;
-    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, sign };
+    let k = kOf(wiz.c[j]);
+    if (Math.abs(dr) >= 5 && Math.abs(dm) >= 3) k = dm / dr;                       // learned: direction AND how far the model turns per servo degree
+    else if (Math.abs(dr) >= 5) wizShow('The model was not moved for step 2, so the scale was kept as before.');
+    k = Math.max(-3, Math.min(3, k)); if (Math.abs(k) < 0.05) k = k < 0 ? -0.05 : 0.05;
+    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, k: +k.toFixed(3) };
     saveCalib3(wiz.c);
-    // put the arm back where it was
+    // back to the reference
     startWhirr(); try { await send(`${j} ${wiz.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
     await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
     wiz.i++; wiz.phase = 'a';
-    if (wiz.i >= J3.length) { wizEnd('Calibrated. The model now follows the real arm.'); chirp('done'); return; }
+    if (wiz.i >= J3.length) {
+      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j} ×${Math.abs(kOf(c[j])).toFixed(2)}${kOf(c[j]) < 0 ? ' (reversed)' : ''}`).join('  ')); chirp('done'); return;
+    }
     wizStep();
   }
 }
@@ -2034,7 +2066,7 @@ function adjustJoint() {
   wizShow(`<b>${JOINT_LABEL[sel3]}</b> · adjust<br>Drag the slider until the model matches the real arm, then tap Done.`);
   $('wizNext').textContent = 'Done';
   $('wizNext').onclick = () => {
-    const c = calib3(); c[sel3] = { r1: armPose[sel3], m1: pose3[sel3], sign: c[sel3].sign }; saveCalib3(c);
+    const c = calib3(); c[sel3] = { r1: armPose[sel3], m1: pose3[sel3], k: kOf(c[sel3]) }; saveCalib3(c);
     $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext;
     wizEnd(JOINT_LABEL[sel3] + ' adjusted.'); setJoint(sel3, pose3[sel3]);
   };
