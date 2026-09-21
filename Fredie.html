@@ -223,7 +223,7 @@
 <body>
 
 <div id="bar">
-  <h1>FREDIE</h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v3.4</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -889,6 +889,7 @@ function poseParser(line) {
 async function readAngles() {
   if (!rxChar) return angles;
   collectingAngles = true; await send('?'); await sleep(1200); collectingAngles = false;
+  lastAngles = { ...angles };
   return angles;
 }
 async function loadPoses() {
@@ -1204,6 +1205,20 @@ function stopWhirr() {
     sweep(220, 110, 200, 0.06, 'square');                                     // "disengage"
   } catch (e) {}
 }
+// how long the arm needs to finish a command (its servos step ~40°/s at speed 3)
+let lastAngles = {};
+function moveTime(cmd) {
+  const m = cmd.match(/^([bsewrg]) ([+-]?)(\d+)$/);
+  if (m) {
+    let deg = parseInt(m[3], 10);
+    if (!m[2] && lastAngles[m[1]] !== undefined) deg = Math.abs(deg - lastAngles[m[1]]);   // absolute: distance from where it was
+    if (m[2]) lastAngles[m[1]] = (lastAngles[m[1]] || 90) + (m[2] === '-' ? -deg : deg); else lastAngles[m[1]] = parseInt(m[3], 10);
+    return 250 + Math.min(deg, 180) * 26;                                                 // 30° ≈ 1 s
+  }
+  if (/^(go |pose |home$)/.test(cmd)) return 1900;
+  if (/^(open|close)$/.test(cmd)) return 700;
+  return 400;
+}
 // one short blip per command the arm receives
 function stepBlip(cmd) {
   if (!S.sfx) return;
@@ -1217,6 +1232,20 @@ let thinkTimer = null;
 function startThinking() { if (!S.sfx || thinkTimer) return; thinkTimer = setInterval(() => beep(1200 + Math.random() * 400, 25, 0.04, 'square'), 260); }
 function stopThinking() { clearInterval(thinkTimer); thinkTimer = null; }
 
+// little robot noises: sequences of [frequency, ms]
+const CHIRPS = {
+  wake:     [[660, 70], [880, 70], [1320, 110]],
+  done:     [[1040, 60], [1560, 120]],
+  confused: [[520, 90], [420, 90], [330, 160]],
+  hurt:     [[440, 120], [330, 220]],
+  tap:      [[990, 40]],
+  sleep:    [[520, 90], [390, 160]],
+};
+function chirp(name) {
+  if (!S.sfx) return;
+  let t = 0;
+  for (const [f, ms] of CHIRPS[name] || []) { setTimeout(() => beep(f, ms, 0.12), t); t += ms + 20; }
+}
 function startListening() {
   if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
   listening = true; if (rec) rec.lang = S.lang; startRec();
@@ -1384,8 +1413,10 @@ async function runGroups(groups) {
         if (c.startsWith('wait:')) { setDoing('Waiting…'); await sleep(parseInt(c.slice(5), 10) || 0); continue; }
         if (c.startsWith('say:'))  { say(c.slice(4)); await sleep(1200); continue; }
         stepBlip(c); await send(c);
-        setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  ') + (i < groups[g].length - 1 ? '' : ''));
-        if (i < groups[g].length - 1) await sleep(S.stepGap * 1000);
+        setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  '));
+        const travel = moveTime(c);
+        if (i < groups[g].length - 1) await sleep(Math.max(S.stepGap * 1000, travel));
+        else await sleep(travel);                                            // let the last move finish before "done"
       }
       if (g < groups.length - 1 && running) { setDoing(`Waiting ${S.groupGap}s before part ${g + 2}…`); await sleep(S.groupGap * 1000); }
     }
@@ -1521,6 +1552,7 @@ async function askAI(text) {
     if (out.say) say(out.say);
     if (!cmds.length) { setDoing(out.say || '…'); setFace('happy', 2000); return; }
     if (!rxChar) { setDoing('Not connected to the arm.', true); showToast('Not connected to the arm'); return; }
+    await readAngles(); lastAngles = { ...angles };
     await runGroups([cmds]);
   } catch (e) {
     stopThinking();
@@ -1546,7 +1578,7 @@ const GESTURES = {
 async function gesture(name) {
   const cmds = GESTURES[name]; if (!cmds || !rxChar || running) return;
   running = true; micPause(); startWhirr();
-  try { for (const c of cmds) { stepBlip(c); await send(c); await sleep(650); } } catch (e) {}
+  try { for (const c of cmds) { stepBlip(c); await send(c); await sleep(Math.max(500, moveTime(c))); } } catch (e) {}
   stopWhirr(); running = false; micResume(800);
 }
 function timeGreeting() {
