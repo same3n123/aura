@@ -320,7 +320,7 @@
 <div id="chatMode" class="mode">
 <div id="bar">
   <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.6</small></h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.7</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -612,16 +612,16 @@ function jointTypes() { return { b: 'rotate', s: 'tilt', e: 'tilt', w: LS('typeW
 const tiltJoint = () => jointTypes().r === 'tilt' ? 'r' : (jointTypes().w === 'tilt' ? 'w' : null);
 const turnJoint = () => jointTypes().w === 'rotate' ? 'w' : (jointTypes().r === 'rotate' ? 'r' : null);
 function defaultMoves() {
-  const T = tiltJoint(), R = turnJoint(), out = [
-    { say: 'extend forward',  j: 'e', d: '+', n: 30 }, { say: 'reach out',       j: 'e', d: '+', n: 30 },
-    { say: 'pull back',       j: 'e', d: '-', n: 30 }, { say: 'come back',       j: 'e', d: '-', n: 30 },
-    { say: 'go up',           j: 's', d: '-', n: 30 }, { say: 'lift',            j: 's', d: '-', n: 30 },
-    { say: 'go down',         j: 's', d: '+', n: 30 }, { say: 'lower',           j: 's', d: '+', n: 30 },
-    { say: 'move left',       j: 'b', d: '+', n: 30 }, { say: 'turn left',       j: 'b', d: '+', n: 30 },
-    { say: 'move right',      j: 'b', d: '-', n: 30 }, { say: 'turn right',      j: 'b', d: '-', n: 30 },
+  const T = tiltJoint(), R = turnJoint(), sf = signFor, out = [
+    { say: 'extend forward',  j: 'e', d: sf('e', 'forward'), n: 30 }, { say: 'reach out',   j: 'e', d: sf('e', 'forward'), n: 30 },
+    { say: 'pull back',       j: 'e', d: sf('e', 'back'), n: 30 },    { say: 'come back',   j: 'e', d: sf('e', 'back'), n: 30 },
+    { say: 'go up',           j: 's', d: sf('s', 'up'), n: 30 },      { say: 'lift',        j: 's', d: sf('s', 'up'), n: 30 },
+    { say: 'go down',         j: 's', d: sf('s', 'down'), n: 30 },    { say: 'lower',       j: 's', d: sf('s', 'down'), n: 30 },
+    { say: 'move left',       j: 'b', d: sf('b', 'left'), n: 30 },    { say: 'turn left',   j: 'b', d: sf('b', 'left'), n: 30 },
+    { say: 'move right',      j: 'b', d: sf('b', 'right'), n: 30 },   { say: 'turn right',  j: 'b', d: sf('b', 'right'), n: 30 },
   ];
-  if (T) out.push({ say: 'look up', j: T, d: '+', n: 30 }, { say: 'look down', j: T, d: '-', n: 30 }, { say: 'nod', j: T, d: '-', n: 20 });
-  if (R) out.push({ say: 'twist right', j: R, d: '+', n: 30 }, { say: 'twist left', j: R, d: '-', n: 30 }, { say: 'rotate the gripper', j: R, d: '+', n: 45 });
+  if (T) out.push({ say: 'look up', j: T, d: sf(T, 'up'), n: 30 }, { say: 'look down', j: T, d: sf(T, 'down'), n: 30 }, { say: 'nod', j: T, d: sf(T, 'down'), n: 20 });
+  if (R) out.push({ say: 'twist right', j: R, d: sf(R, 'clockwise'), n: 30 }, { say: 'twist left', j: R, d: sf(R, 'anticlockwise'), n: 30 }, { say: 'rotate the gripper', j: R, d: sf(R, 'clockwise'), n: 45 });
   return out;
 }
 const DEFAULT_MOVES = [
@@ -636,17 +636,7 @@ const DEFAULT_MOVES = [
   { say: 'nod',             j: 'w', d: '-', n: 20 },
 ];
 const DEFAULT_AMOUNTS = { littleN: 15, littleW: 'a little, a bit, slightly, a tad', lotN: 45, lotW: 'a lot, much, way, far, big', defN: 30 };
-function defaultJointWords() {
-  const t = jointTypes(), turn = { '+': 'right, clockwise', '-': 'left, anticlockwise, counterclockwise' }, tilt = { '+': 'up, raise, higher', '-': 'down, lower' };
-  return {
-    b: { '+': 'left, anticlockwise',            '-': 'right, clockwise' },
-    s: { '+': 'down, lower',                    '-': 'up, raise, higher' },
-    e: { '+': 'forward, out, extend, up',       '-': 'back, in, fold, down' },
-    w: t.w === 'rotate' ? { ...turn } : { ...tilt },
-    r: t.r === 'rotate' ? { ...turn } : { ...tilt },
-    g: { '+': 'open',                           '-': 'close' },
-  };
-}
+function defaultJointWords() { const out = {}; J3.forEach(j => out[j] = plusMinusWords(j)); return out; }
 const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast'), level = $('level'), levelBar = level.querySelector('i');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
@@ -655,14 +645,17 @@ const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = 
 //  Settings
 // ============================================================
 function defaultGuide() {
-  const t = jointTypes();
-  const desc = (name, type) => type === 'rotate' ? `${name}: turns the gripper around the forearm. Higher = clockwise, lower = anticlockwise. 90 is straight.` : `${name}: tilts the gripper. Higher = looks up, lower = looks down.`;
-  return `b = base: turns the whole arm. Higher = left, lower = right.
-s = shoulder: lifts the arm. Higher = down, lower = up.
-e = elbow: folds the forearm. Higher = extends forward, lower = folds in.
-w = ${desc('wrist', t.w)}
-r = ${desc('roll', t.r)}
-g = gripper: jaws. "open" and "close" are easier than numbers.`;
+  const t = jointTypes(), pm = j => plusMinusWords(j), c = calib3();
+  const scale = j => (c[j] && c[j].plus) ? ` About ${Math.abs(kOf(c[j])).toFixed(2)} real degrees per servo degree.` : '';
+  const line = (j, name, what) => `${j} = ${name}: ${what}. Higher angle = ${pm(j)['+'].split(',')[0]}, lower = ${pm(j)['-'].split(',')[0]}.${scale(j)}`;
+  return [
+    line('b', 'base', 'turns the whole arm'),
+    line('s', 'shoulder', 'lifts the arm'),
+    line('e', 'elbow', 'folds the forearm'),
+    line('w', 'wrist', t.w === 'rotate' ? 'turns the gripper around the forearm (90 is straight)' : 'tilts the gripper'),
+    line('r', 'roll', t.r === 'rotate' ? 'turns the gripper around the forearm (90 is straight)' : 'tilts the gripper'),
+    'g = gripper: jaws. "open" and "close" are easier than numbers.',
+  ].join('\n');
 }
 const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
 const S = {
@@ -850,7 +843,7 @@ function matchMove(t) {
     if (new RegExp('\\b' + esc(m.say.toLowerCase()) + '\\b').test(low) && (!best || m.say.length > best.say.length)) best = m;
   }
   if (!best) return null;
-  return `${best.j} ${best.d}${n === null ? (best.n || am.defN) : n}`;
+  return `${best.j} ${best.d}${servoAmount(best.j, n === null ? (best.n || am.defN) : n)}`;
 }
 
 // ---------- Tasks builder ----------
@@ -947,7 +940,7 @@ function limitCmd(cmd) {
 function compileTask(t, depth = 0) {
   const out = [];
   for (const st of t.steps || []) {
-    if (st.type === 'joint') out.push(st.d === '=' ? `${st.j} ${st.n}` : `${st.j} ${st.d}${st.n}`);
+    if (st.type === 'joint') out.push(st.d === '=' ? `${st.j} ${st.n}` : `${st.j} ${st.d}${servoAmount(st.j, st.n)}`);
     else if (st.type === 'pose') out.push('go ' + st.name);
     else if (st.type === 'grip') out.push(st.v);
     else if (st.type === 'wait') out.push('wait:' + Math.round((st.s || 0) * 1000));
@@ -1546,13 +1539,14 @@ function parseJointMove(t) {
   const n = num ? Math.abs(parseInt(num[1], 10)) : hasWord(orig, wordList(am.littleW)) ? am.littleN : hasWord(orig, wordList(am.lotW)) ? am.lotN : am.defN;
   const jw = S.jointWords[joint] || {};
   const plusWords = wordList(jw['+']), minusWords = wordList(jw['-']);
-  if (num && num[1].startsWith('-')) return `${joint} -${n}`;
-  if (MINUS.test(t)) return `${joint} -${n}`;
-  if (PLUS.test(t))  return `${joint} +${n}`;
-  if (hasWord(orig, plusWords))  return `${joint} +${n}`;
-  if (hasWord(orig, minusWords)) return `${joint} -${n}`;
-  if (!num) return `${joint} +${n}`;                                         // "move shoulder" alone = first + column meaning
-  return `${joint} ${n}`;                                                   // absolute angle
+  if (num && num[1].startsWith('-')) return `${joint} -${servoAmount(joint, n)}`;
+  if (MINUS.test(t)) return `${joint} -${servoAmount(joint, n)}`;
+  if (PLUS.test(t))  return `${joint} +${servoAmount(joint, n)}`;
+  const sn = servoAmount(joint, n);                                          // real degrees -> servo degrees
+  if (hasWord(orig, plusWords))  return `${joint} +${sn}`;
+  if (hasWord(orig, minusWords)) return `${joint} -${sn}`;
+  if (!num) return `${joint} +${sn}`;                                        // "move shoulder" alone = first + column meaning
+  return `${joint} ${n}`;                                                   // absolute angle stays a servo angle
 }
 function editDistance(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -1840,7 +1834,31 @@ let pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };   // what the model sh
 let armPose = null;                            // what the arm last reported
 let sel3 = 'b', threeReady = false, dirty = false;
 // Per-joint mapping between the arm's real angle and the model's angle:  model = m1 + sign * (real - r1)
-const DEFAULT_MAP = { r1: 90, m1: 90, k: 1 };          // model = m1 + k * (real - r1);  k carries direction and scale
+const DEFAULT_MAP = { r1: 90, m1: 90, k: 1 };
+// what a HIGHER servo angle does, per joint, as a natural word. Learned in calibration; these are the fallbacks.
+const DIR_PAIRS = {
+  b: [['left', 'left, anticlockwise'], ['right', 'right, clockwise']],
+  s: [['up', 'up, raise, higher'], ['down', 'down, lower']],
+  e: [['forward', 'forward, out, extend, up'], ['back', 'back, in, fold, down']],
+  tilt: [['up', 'up, raise, higher'], ['down', 'down, lower']],
+  rotate: [['clockwise', 'right, clockwise'], ['anticlockwise', 'left, anticlockwise, counterclockwise']],
+  g: [['open', 'open'], ['close', 'close']],
+};
+const DEFAULT_PLUS = { b: 'left', s: 'down', e: 'forward', g: 'open' };
+function pairsFor(j) { const t = jointTypes(); return DIR_PAIRS[j] || DIR_PAIRS[t[j] === 'rotate' ? 'rotate' : 'tilt']; }
+function plusWord(j) {                     // which natural word a higher servo angle means
+  const c = calib3()[j]; if (c && c.plus) return c.plus;
+  if (DEFAULT_PLUS[j]) return DEFAULT_PLUS[j];
+  const t = jointTypes(); return t[j] === 'rotate' ? 'clockwise' : 'up';
+}
+function plusMinusWords(j) {               // {'+': words, '-': words} for this joint
+  const pairs = pairsFor(j), pw = plusWord(j);
+  const plus = pairs.find(p => p[0] === pw) || pairs[0], minus = pairs.find(p => p[0] !== plus[0]);
+  return { '+': plus[1], '-': minus[1] };
+}
+function signFor(j, word) { return plusWord(j) === word ? '+' : '-'; }
+// real degrees -> servo degrees, using the learned scale (k = model degrees per servo degree)
+function servoAmount(j, deg) { const c = calib3()[j]; const k = Math.abs(kOf(c)); if (!c || !c.plus || !k) return deg; return Math.max(1, Math.min(180, Math.round(deg / k))); }          // model = m1 + k * (real - r1);  k carries direction and scale
 function calib3() { try { const c = JSON.parse(LS('calib3', '{}')); const out = {}; J3.forEach(j => out[j] = Object.assign({}, DEFAULT_MAP, c[j] || {})); return out; } catch (e) { const out = {}; J3.forEach(j => out[j] = { ...DEFAULT_MAP }); return out; } }
 function saveCalib3(c) { localStorage.setItem('aura.calib3', JSON.stringify(c)); }
 const clamp180 = v => Math.max(0, Math.min(180, Math.round(v)));
@@ -2025,9 +2043,23 @@ async function wizStep() {
     pose3[j] = 90; setJoint(j, 90);                          // model starts straight; you bend it to match
     $('wizNext').disabled = false;
     wizShow(`<b>${JOINT_LABEL[j]}</b> · step 1 of 2<br>The real ${JOINT_LABEL[j].toLowerCase()} is at ${wiz.ref}°. Drag the slider until the model looks the same, then tap Next.`);
+  } else if (wiz.phase === 'b') {
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 3<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
   } else {
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 2<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
+    const pairs = pairsFor(j);
+    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
+      <button id="dirA">${pairs[0][0]}</button><button id="dirB">${pairs[1][0]}</button></div>`);
+    $('wizNext').disabled = true;
+    $('dirA').onclick = () => wizDir(pairs[0][0]); $('dirB').onclick = () => wizDir(pairs[1][0]);
   }
+}
+async function wizDir(word) {
+  const j = J3[wiz.i];
+  // the arm moved by wiz.delta servo degrees and the user saw "word": so a HIGHER angle means…
+  const plus = wiz.delta > 0 ? word : pairsFor(j).find(p => p[0] !== word)[0];
+  wiz.c[j] = { ...wiz.c[j], plus }; saveCalib3(wiz.c);
+  $('wizNext').disabled = false;
+  await wizFinishJoint();
 }
 async function wizNext() {
   if (!wiz) return;
@@ -2041,24 +2073,37 @@ async function wizNext() {
     await readAngles(); armPose = { ...angles };
     wiz.r2 = armPose[j] !== undefined ? armPose[j] : wiz.r1 + wiz.delta;
     $('wizNext').disabled = false; wiz.phase = 'b'; wizStep();
-  } else {
+  } else if (wiz.phase === 'b') {
     const m2 = pose3[j];
     const dm = m2 - wiz.m1, dr = wiz.r2 - wiz.r1;
     let k = kOf(wiz.c[j]);
     if (Math.abs(dr) >= 5 && Math.abs(dm) >= 3) k = dm / dr;                       // learned: direction AND how far the model turns per servo degree
-    else if (Math.abs(dr) >= 5) wizShow('The model was not moved for step 2, so the scale was kept as before.');
     k = Math.max(-3, Math.min(3, k)); if (Math.abs(k) < 0.05) k = k < 0 ? -0.05 : 0.05;
-    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, k: +k.toFixed(3) };
+    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, k: +k.toFixed(3), plus: wiz.c[j].plus };
     saveCalib3(wiz.c);
-    // back to the reference
-    startWhirr(); try { await send(`${j} ${wiz.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
-    await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
+    wiz.phase = 'c'; wizStep();
+  }
+}
+async function wizFinishJoint() {
+  const j = J3[wiz.i];
+  wizShow(`<b>${JOINT_LABEL[j]}</b> · back to ${wiz.r1}°…`);
+  startWhirr(); try { await send(`${j} ${wiz.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
+  await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
+  {
     wiz.i++; wiz.phase = 'a';
     if (wiz.i >= J3.length) {
-      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j} ×${Math.abs(kOf(c[j])).toFixed(2)}${kOf(c[j]) < 0 ? ' (reversed)' : ''}`).join('  ')); chirp('done'); return;
+      applyCalibToChat();
+      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j}: + is ${plusWord(j)}`).join(', ') + '. Chat mode words and phrases updated.'); chirp('done'); return;
     }
     wizStep();
   }
+}
+// push what calibration learned into the chat-mode tables (joint words, movement phrases, AI guide)
+function applyCalibToChat() {
+  const jw = defaultJointWords(); jointInputs.forEach(i => i.value = jw[i.dataset.j][i.dataset.d]);
+  localStorage.setItem('aura.moves', JSON.stringify(defaultMoves())); renderMoves();
+  jointGuide.value = defaultGuide();
+  saveSettings();
 }
 function adjustJoint() {
   if (!armPose || armPose[sel3] === undefined) { $('threeStatus').textContent = 'Read from arm first.'; return; }
