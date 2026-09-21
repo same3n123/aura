@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Fredie</title>
-<meta name="theme-color" content="#0B1020">
+<meta name="theme-color" content="#070B14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,10 +13,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0B1020; --bg2: #121A2E; --panel: #171F35; --line: #26304A;
-    --ink: #E8EEF8; --muted: #8A97B2; --eye: #59E3FF; --eye-dim: #2A6E7C;
+    --bg: #070B14; --bg2: #0F1626; --panel: #141C2E; --line: #24304A;
+    --ink: #E8EEF8; --muted: #8A97B2;
+    --eye: #5EEBFF; --eye-dim: #2B7C8C; --iris: #050912; --shine: #FFFFFF; --glow: rgba(94,235,255,.55);
     --act: #FF8A3D; --ok: #4ED4A2; --bad: #FF5C5C;
     --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+  }
+  :root[data-theme="light"] {
+    --bg: #F4F7FB; --bg2: #FFFFFF; --panel: #FFFFFF; --line: #D9E1EC;
+    --ink: #17202E; --muted: #5F6C82;
+    --iris: #17202E; --shine: #FFFFFF;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
@@ -46,49 +52,88 @@
 
   /* ---------- face ---------- */
   #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 20px; min-height: 0; }
-  #ears { display: none; align-items: center; gap: 14px; margin-bottom: 6px; color: #fff; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; }
+  #ears { display: none; align-items: center; gap: 14px; margin-bottom: 6px; color: var(--ink); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
   #ears.show { display: flex; }
-  #ears svg { width: 30px; height: 36px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  #ears svg.r { transform: scaleX(-1); }
-  @media (prefers-reduced-motion: no-preference) { #ears.show svg { animation: wiggle 2.4s ease-in-out infinite; } #ears.show svg.r { animation-delay: 1.2s; } }
+  #ears svg { width: 28px; height: 34px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  @media (prefers-reduced-motion: no-preference) { #ears.show svg { animation: wiggle 2.4s ease-in-out infinite; } #ears.show svg.r { animation-name: wiggle-r; animation-delay: 1.2s; } }
   @keyframes wiggle { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } }
   @keyframes wiggle-r { 0%, 100% { transform: scaleX(-1) rotate(0); } 50% { transform: scaleX(-1) rotate(-8deg); } }
-  #ears.show svg.r { animation-name: wiggle-r; }
-  #face { width: min(78vw, 360px); aspect-ratio: 3 / 2; position: relative; }
-  #face svg { width: 100%; height: 100%; overflow: visible; }
-  .eye { fill: var(--eye-dim); transition: all .35s cubic-bezier(.4,0,.2,1); transform-box: fill-box; transform-origin: center; }
-  .mouth { fill: none; stroke: var(--eye-dim); stroke-width: 6; stroke-linecap: round; transition: all .35s; opacity: 0; }
-  #eyes { transition: transform .5s cubic-bezier(.4,0,.2,1); }
-  .glow { filter: drop-shadow(0 0 18px rgba(89,227,255,.55)); }
+  #ears svg.r { transform: scaleX(-1); }
 
-  /* eye states */
-  .s-off .eye { fill: var(--eye-dim); transform: scaleY(.08); }
-  .s-standby .eye { fill: var(--eye-dim); transform: scaleY(.22); }
-  .s-standby #eyes { animation: breathe 4s ease-in-out infinite; }
-  @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
-  .s-listening .eye { fill: var(--eye); }
-  .s-listening #eyes { animation: blink 5.5s infinite, drift 9s ease-in-out infinite; }
-  .s-hearing .eye { fill: #9FF0FF; transform: scale(1.12); }
-  .s-thinking .eye { fill: var(--eye); transform: scaleY(.85); }
-  .s-thinking #eyes { transform: translate(18px, -16px); animation: blink 3s infinite; }
-  .s-moving #eyes, .s-moving .mouth { opacity: 0; }
+  #face { width: min(84vw, 380px); aspect-ratio: 3 / 2; position: relative; }
+  #face .faceSvg, #face .faceSvg svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  #face .glow { filter: drop-shadow(0 0 14px var(--glow)) drop-shadow(0 0 3px var(--glow)); }
+  .eye-g { transform-box: fill-box; transform-origin: center; transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s; }
+  .ring { fill: var(--eye); transition: fill .35s; }
+  .iris { fill: var(--iris); }
+  .pupil-g { transform-box: fill-box; transform-origin: center; transition: transform .45s cubic-bezier(.4,0,.2,1); }
+  .shine { fill: var(--shine); }
+  .brow { fill: none; stroke: var(--eye); stroke-width: 9; stroke-linecap: round; transform-box: fill-box; transform-origin: center; transition: transform .35s, stroke .35s, opacity .35s; }
+  .mouth { fill: none; stroke: var(--eye); stroke-width: 7; stroke-linecap: round; transition: d .35s, stroke .35s, opacity .35s; }
+  .smile { fill: none; stroke: var(--eye); stroke-width: 11; stroke-linecap: round; opacity: 0; transition: opacity .3s; }
+
+  /* hair, extras */
+  .hair { fill: var(--hair); stroke: var(--hair); stroke-width: 2; stroke-linejoin: round; display: none; }
+  .hair.on { display: block; }
+  .extra { display: none; } .extra.on { display: block; }
+  .glasses { fill: none; stroke: var(--ink); stroke-width: 5; opacity: .85; }
+  .antenna { fill: none; stroke: var(--eye); stroke-width: 6; stroke-linecap: round; }
+  .antenna-ball { fill: var(--act); }
+  .bow { fill: var(--bow); }
+  .blush { fill: #FF7A9A; opacity: .45; }
+  #facePreview { width: 70%; max-width: 260px; aspect-ratio: 3/2; margin: 8px auto 0; position: relative; }
+  #facePreview svg { width: 100%; height: 100%; overflow: visible; }
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .presets button { width: 36px; height: 36px; padding: 0; border-radius: 50%; border: 2px solid var(--line); }
+  .colorRow { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+  .colorRow input[type=color] { width: 56px; height: 42px; padding: 3px; margin: 0; }
+
+  /* states */
+  .s-off .ring, .s-off .brow, .s-off .mouth { fill: var(--eye-dim); stroke: var(--eye-dim); }
+  .s-off .ring { fill: var(--eye-dim); }
+  .s-off .eye-g { transform: scaleY(.06); }
+  .s-off .brow { opacity: .35; } .s-off .mouth { opacity: .4; }
+
+  .s-standby .ring { fill: var(--eye-dim); }
+  .s-standby .brow, .s-standby .mouth { stroke: var(--eye-dim); }
+  .s-standby .eye-g { transform: scaleY(.4); }
+  .s-standby .brow { transform: translateY(10px); opacity: .6; }
+  .s-standby .glow { filter: none; }
+  @media (prefers-reduced-motion: no-preference) { .s-standby .eye-g { animation: breathe 4s ease-in-out infinite; } }
+  @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .95; } }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .s-listening .eye-g { animation: blink 5.5s infinite; }
+    .s-listening .pupil-g { animation: wander 9s ease-in-out infinite; }
+  }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.05); } }
+  @keyframes wander { 0%, 100% { transform: translate(0,0); } 30% { transform: translate(5px,-3px); } 60% { transform: translate(-5px,2px); } }
+
+  .s-hearing .pupil-g { transform: scale(1.18); }
+  .s-hearing .brow { transform: translateY(-8px); }
+  .s-thinking .pupil-g { transform: translate(12px, -10px); }
+  .s-thinking .brow.l { transform: translateY(-10px) rotate(-8deg); }
+  .s-thinking .mouth { d: path("M 138 158 L 162 158"); }
+
+  .s-moving .eye-g, .s-moving .brow, .s-moving .mouth { opacity: 0; }
   #working { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; gap: 26px; }
   .s-moving #working { display: flex; }
   #working svg { width: 26%; height: auto; fill: none; stroke: var(--act); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   #working svg.small { width: 17%; stroke: var(--eye); }
   #working .label { position: absolute; bottom: -6px; left: 0; right: 0; text-align: center; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--act); }
-  @media (prefers-reduced-motion: no-preference) {
-    #working svg.big   { animation: spin 3.2s linear infinite; }
-    #working svg.small { animation: spin 2.1s linear infinite reverse; }
-  }
+  @media (prefers-reduced-motion: no-preference) { #working svg.big { animation: spin 3.2s linear infinite; } #working svg.small { animation: spin 2.1s linear infinite reverse; } }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .s-happy .eye { fill: var(--eye); transform: scaleY(.28) translateY(-40px); }
-  .s-happy .mouth { opacity: 1; stroke: var(--eye); }
-  .s-error .eye { fill: var(--act); transform: scaleY(.3) rotate(-6deg); }
-  .s-error .mouth { opacity: 1; stroke: var(--act); d: path("M 120 150 Q 150 138 180 150"); }
-  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.06); } }
-  @keyframes drift { 0%, 100% { translate: 0 0; } 30% { translate: 8px -4px; } 65% { translate: -7px 3px; } }
-  @media (prefers-reduced-motion: reduce) { #eyes { animation: none !important; } }
+
+  .s-happy .eye-g { opacity: 0; }
+  .s-happy .smile { opacity: 1; }
+  .s-happy .brow { transform: translateY(-6px); }
+  .s-happy .mouth { d: path("M 122 156 Q 150 176 178 156"); }
+
+  .s-error .brow.l { transform: rotate(18deg) translateY(4px); }
+  .s-error .brow.r { transform: rotate(-18deg) translateY(4px); }
+  .s-error .ring, .s-error .brow, .s-error .mouth { fill: var(--act); stroke: var(--act); }
+  .s-error .ring { fill: var(--act); }
+  .s-error .mouth { d: path("M 128 162 Q 150 150 172 162"); }
 
   #toast { position: fixed; top: calc(64px + var(--sat)); left: 50%; transform: translate(-50%, -20px); opacity: 0;
     background: rgba(255,255,255,.94); color: #10131C; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
@@ -150,13 +195,7 @@
     <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
   </div>
   <div id="face" class="s-off">
-    <svg viewBox="0 0 300 200" aria-hidden="true">
-      <g id="eyes" class="glow">
-        <rect class="eye" x="70" y="55" width="60" height="80" rx="24"/>
-        <rect class="eye" x="170" y="55" width="60" height="80" rx="24"/>
-      </g>
-      <path class="mouth" d="M 120 150 Q 150 168 180 150"/>
-    </svg>
+    <div class="faceSvg"></div>
     <div id="working" aria-hidden="true">
       <svg class="big" viewBox="0 0 24 24"><path d="M12 2l1.2 2.5 2.7-.6.7 2.7 2.6 1.1-1 2.6 1.9 2-1.9 2 1 2.6-2.6 1.1-.7 2.7-2.7-.6L12 22l-1.2-2.5-2.7.6-.7-2.7-2.6-1.1 1-2.6-1.9-2 1.9-2-1-2.6 2.6-1.1.7-2.7 2.7.6z"/><circle cx="12" cy="12" r="3.2"/></svg>
       <svg class="small" viewBox="0 0 24 24"><path d="M12 2l1.2 2.5 2.7-.6.7 2.7 2.6 1.1-1 2.6 1.9 2-1.9 2 1 2.6-2.6 1.1-.7 2.7-2.7-.6L12 22l-1.2-2.5-2.7.6-.7-2.7-2.6-1.1 1-2.6-1.9-2 1.9-2-1-2.6 2.6-1.1.7-2.7 2.7.6z"/><circle cx="12" cy="12" r="3.2"/></svg>
@@ -194,6 +233,23 @@
     </div>
 
     <div class="section">
+      <h3>AI mode</h3>
+      <label>AI mode
+        <select id="aiMode"><option value="0">Off - only shortcuts, poses and joint moves</option><option value="1">On - Claude interprets everything else</option></select></label>
+      <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
+      <label>Model<input id="model" type="text" value="claude-sonnet-5"></label>
+      <div class="row2"><button id="testBtn">Test key</button></div>
+      <div class="note" id="keyNote"></div>
+      <label>Joint guide - tell the AI what each joint does on YOUR arm
+        <textarea id="jointGuide"></textarea></label>
+      <div class="row2"><button id="guideReset">Reset guide to default</button></div>
+      <p class="hint">Check the direction words against your arm: type "b +20" in the command box and see which way it turns, then fix the base line if needed. Same for wrist up/down.</p>
+      <label>Personality and extra rules
+        <textarea id="persona" placeholder="Playful, witty, short replies. Loves snacks."></textarea></label>
+      <p class="hint">With AI on, sentences the app cannot match itself are sent to Claude with this guide, the arm's current angles, your poses and your shortcuts. It replies with moves and a spoken line. Chat that is not about moving just gets a reply.</p>
+    </div>
+
+    <div class="section">
       <h3>Shortcuts</h3>
       <p class="hint">What you say, what it does, and (optionally) what it says when finished. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence and they run one after the other; the reply spoken is the last one's.</p>
       <table id="shortcuts">
@@ -218,12 +274,7 @@
           <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option>
           <option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option>
         </select></label>
-      <label>Voice
-        <select id="gender"><option value="female">Female (auto)</option><option value="male">Male (auto)</option><option value="any">Any</option></select></label>
-      <label>Or pick an exact voice on this phone
-        <select id="voiceName"><option value="">(auto)</option></select></label>
       <div class="row2"><button id="testVoice">Test voice</button></div>
-      <p class="hint">Phones do not label voices male or female, so "auto" guesses from the voice name. If it guesses wrong, pick the exact voice from the list and use Test voice to hear it.</p>
       <label>Language it listens for
         <select id="lang">
           <option value="en-IN">English (India)</option><option value="en-US">English (US)</option>
@@ -235,21 +286,46 @@
 
     <div class="section">
       <h3>Look</h3>
-      <label>Background colour</label>
-      <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-        <input id="bgColor" type="color" value="#0B1020" style="width:56px;height:44px;padding:4px;margin:0">
-        <button id="bgReset">Default</button>
-        <button data-bg="#000000" class="swatch">Black</button>
-        <button data-bg="#1B1B1F" class="swatch">Graphite</button>
-        <button data-bg="#F3F1EA" class="swatch">Paper</button>
+      <label>Theme
+        <select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+    </div>
+
+    <div class="section">
+      <h3>Face</h3>
+      <div id="facePreview" class="s-listening"><div class="faceSvg"></div></div>
+      <label>Eye colour</label>
+      <div class="colorRow"><input id="eyeColor" type="color" value="#5EEBFF"><span class="hint" style="margin:0">or pick a preset</span></div>
+      <div class="presets" id="eyePresets">
+        <button data-c="#5EEBFF" style="background:#5EEBFF"></button><button data-c="#7CFF8A" style="background:#7CFF8A"></button>
+        <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
+        <button data-c="#FF6BC6" style="background:#FF6BC6"></button><button data-c="#B78BFF" style="background:#B78BFF"></button>
+        <button data-c="#FFFFFF" style="background:#FFFFFF"></button>
       </div>
-      <p class="hint">Text and panels adjust automatically to stay readable on light or dark colours.</p>
+      <label>Hair
+        <select id="hair"><option value="none">None</option><option value="spiky">Spiky</option><option value="bob">Bob</option>
+          <option value="curly">Curly</option><option value="mohawk">Mohawk</option><option value="side">Side sweep</option></select></label>
+      <label>Hair colour</label>
+      <div class="colorRow"><input id="hairColor" type="color" value="#FF8A3D"></div>
+      <div class="presets" id="hairPresets">
+        <button data-c="#2B2B2B" style="background:#2B2B2B"></button><button data-c="#6B3E1E" style="background:#6B3E1E"></button>
+        <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
+        <button data-c="#FF4D6D" style="background:#FF4D6D"></button><button data-c="#B78BFF" style="background:#B78BFF"></button>
+        <button data-c="#5EEBFF" style="background:#5EEBFF"></button>
+      </div>
+      <label>Extras
+        <select id="extra"><option value="none">None</option><option value="glasses">Glasses</option><option value="antenna">Antenna</option><option value="bow">Bow</option></select></label>
+      <label>Bow colour</label>
+      <div class="colorRow"><input id="bowColor" type="color" value="#FF4D6D"></div>
+      <label>Blush
+        <select id="blush"><option value="0">Off</option><option value="1">On</option></select></label>
+      <label>Brows
+        <select id="brows"><option value="1">On</option><option value="0">Off</option></select></label>
     </div>
 
     <div class="section">
       <h3>Noise filtering</h3>
       <label>Minimum confidence to act (0.3 = loose, 0.8 = strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
-      <label>When it clearly hears a sentence it does not know
+      <label>When it clearly hears a sentence it does not know (and AI mode is off)
         <select id="askUnknown"><option value="1">Say "Sorry, I didn't understand"</option><option value="0">Stay quiet</option></select></label>
       <p class="hint">Words it hears but rejects show faintly with a "?" so you can see what the noise sounds like to it. Raise the confidence if it keeps reacting to background sound; lower it if it ignores you.</p>
     </div>
@@ -277,24 +353,42 @@ const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses
 const shortcutRows = $('shortcutRows'), addRow = $('addRow');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
-const gender = $('gender'), voiceName = $('voiceName'), testVoice = $('testVoice'), bgColor = $('bgColor'), bgReset = $('bgReset');
+const testVoice = $('testVoice'), theme = $('theme');
+const eyeColor = $('eyeColor'), hair = $('hair'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast');
+const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
 
 // ============================================================
 //  Settings
 // ============================================================
+const DEFAULT_GUIDE = `b = base: turns the whole arm. Higher = left, lower = right.
+s = shoulder: lifts the arm. Higher = up, lower = down.
+e = elbow: folds the forearm. Higher = extends forward, lower = folds in.
+w = wrist: tilts the gripper. Higher = looks up, lower = looks down.
+r = roll: twists the gripper. 90 is level.
+g = gripper: jaws. "open" and "close" are easier than numbers.`;
 const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
 const S = {
   get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
   get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
   get lang() { return LS('lang', 'en-IN'); },
   get talk() { return LS('talk', '1') === '1'; },
+  get ai() { return LS('ai', '0') === '1'; },
+  get apiKey() { return LS('apiKey', ''); },
+  get model() { return LS('model', 'claude-sonnet-5'); },
+  get jointGuide() { const g = LS('jointGuide', ''); return g.trim() ? g : DEFAULT_GUIDE; },   // blank = use the default
+  get persona() { return LS('persona', ''); },
   get wakeWord() { return (LS('wakeWord', 'Fredie') || 'Fredie').trim(); },
   get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
   get accent() { return LS('accent', 'en-US'); },
-  get gender() { return LS('gender', 'female'); },
-  get voiceName() { return LS('voiceName', ''); },
-  get bg() { return LS('bg', '#0B1020'); },
+  get theme() { return LS('theme', 'dark'); },
+  get eyeColor() { return LS('eyeColor', '#5EEBFF'); },
+  get hair() { return LS('hair', 'none'); },
+  get hairColor() { return LS('hairColor', '#FF8A3D'); },
+  get extra() { return LS('extra', 'none'); },
+  get bowColor() { return LS('bowColor', '#FF4D6D'); },
+  get blush() { return LS('blush', '0') === '1'; },
+  get brows() { return LS('brows', '1') === '1'; },
   get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
   get askUnknown() { return LS('askUnknown', '1') === '1'; },
   get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
@@ -303,7 +397,11 @@ function loadSettingsUI() {
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
   renderShortcuts(S.shortcuts);
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
-  gender.value = S.gender; bgColor.value = S.bg; applyTheme(S.bg); fillVoiceList();
+  theme.value = S.theme; applyTheme(S.theme);
+  eyeColor.value = S.eyeColor; hair.value = S.hair; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
+  blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
+  aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model; persona.value = S.persona;
+  jointGuide.value = S.jointGuide;
 }
 function saveSettings() {
   try {
@@ -312,31 +410,74 @@ function saveSettings() {
     set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
-    set('gender', gender.value); set('voiceName', voiceName.value); set('bg', bgColor.value);
+    set('theme', theme.value);
+    set('eyeColor', eyeColor.value); set('hair', hair.value); set('hairColor', hairColor.value); set('extra', extra.value);
+    set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
+    set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
+    set('jointGuide', jointGuide.value); set('persona', persona.value);
   } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
-  note(saveNote, 'Saved. Wake word is "' + S.wakeWord + '".', 'ok');
+  note(saveNote, 'Saved. Wake word is "' + S.wakeWord + '". AI mode ' + (S.ai ? (S.apiKey ? 'on.' : 'on, but no API key!') : 'off.'), S.ai && !S.apiKey ? 'bad' : 'ok');
 }
-function applyTheme(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return;
-  const n = parseInt(m[1], 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
-  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  const mix = (k, t) => { const c = x => Math.round(x + (t - x) * k); return `rgb(${c(r)},${c(g)},${c(b)})`; };
-  const root = document.documentElement.style;
-  root.setProperty('--bg', hex);
-  if (lum > 0.5) {   // light background -> dark text, slightly darker panels
-    root.setProperty('--ink', '#1B2233'); root.setProperty('--muted', '#5C6678');
-    root.setProperty('--panel', mix(0.07, 0)); root.setProperty('--bg2', mix(0.04, 0)); root.setProperty('--line', mix(0.16, 0));
-    root.setProperty('--eye-dim', '#7FB7C4');
-  } else {            // dark background -> light text, slightly lighter panels
-    root.setProperty('--ink', '#E8EEF8'); root.setProperty('--muted', '#8A97B2');
-    root.setProperty('--panel', mix(0.09, 255)); root.setProperty('--bg2', mix(0.05, 255)); root.setProperty('--line', mix(0.18, 255));
-    root.setProperty('--eye-dim', '#2A6E7C');
-  }
-  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = hex;
+// ---------- the face itself (drawn twice: on stage and in the settings preview) ----------
+const FACE_SVG = `
+<svg viewBox="0 0 300 200" aria-hidden="true">
+  <g class="hair spiky"><path d="M 58 40 L 74 6 L 90 34 L 106 -4 L 122 32 L 138 -8 L 154 32 L 170 -6 L 186 34 L 202 -2 L 218 34 L 236 8 L 246 42 Q 150 26 58 40 Z"/></g>
+  <g class="hair bob"><path d="M 50 60 Q 46 -4 150 -6 Q 254 -4 250 60 Q 246 30 150 26 Q 54 30 50 60 Z"/><path d="M 50 60 Q 44 90 56 118 L 68 116 Q 60 90 64 62 Z"/><path d="M 250 60 Q 256 90 244 118 L 232 116 Q 240 90 236 62 Z"/></g>
+  <g class="hair curly"><circle cx="70" cy="34" r="17"/><circle cx="98" cy="18" r="19"/><circle cx="128" cy="8" r="19"/><circle cx="158" cy="6" r="20"/><circle cx="188" cy="10" r="19"/><circle cx="216" cy="20" r="18"/><circle cx="238" cy="38" r="16"/></g>
+  <g class="hair mohawk"><path d="M 126 34 L 134 -14 L 144 20 L 150 -22 L 156 20 L 166 -14 L 174 34 Q 150 26 126 34 Z"/></g>
+  <g class="hair side"><path d="M 54 46 Q 60 -2 150 -4 Q 236 -6 252 36 Q 216 22 176 30 Q 132 40 108 34 Q 80 30 54 46 Z"/></g>
+  <g class="glow">
+    <path class="brow l" d="M 68 44 Q 98 30 128 40"/>
+    <path class="brow r" d="M 172 40 Q 202 30 232 44"/>
+    <g class="eye-g">
+      <circle class="ring" cx="98" cy="102" r="44"/>
+      <circle class="iris" cx="98" cy="102" r="33"/>
+      <g class="pupil-g"><circle class="shine" cx="86" cy="90" r="8"/></g>
+    </g>
+    <g class="eye-g">
+      <circle class="ring" cx="202" cy="102" r="44"/>
+      <circle class="iris" cx="202" cy="102" r="33"/>
+      <g class="pupil-g"><circle class="shine" cx="190" cy="90" r="8"/></g>
+    </g>
+    <path class="smile" d="M 60 108 Q 98 78 136 108"/>
+    <path class="smile" d="M 164 108 Q 202 78 240 108"/>
+    <path class="mouth" d="M 134 160 Q 150 166 166 160"/>
+  </g>
+  <g class="extra glasses"><circle cx="98" cy="102" r="52" class="glasses"/><circle cx="202" cy="102" r="52" class="glasses"/><path class="glasses" d="M 150 100 L 150 104 M 46 100 L 30 92 M 254 100 L 270 92"/></g>
+  <g class="extra antenna"><path class="antenna" d="M 150 34 L 150 4"/><circle class="antenna-ball" cx="150" cy="2" r="9"/></g>
+  <g class="extra bow"><path class="bow" d="M 236 26 L 214 12 L 218 40 Z M 236 26 L 258 12 L 254 40 Z"/><circle class="bow" cx="236" cy="26" r="6"/></g>
+  <g class="extra blushG"><ellipse class="blush" cx="70" cy="146" rx="18" ry="8"/><ellipse class="blush" cx="230" cy="146" rx="18" ry="8"/></g>
+</svg>`;
+document.querySelectorAll('.faceSvg').forEach(el => el.innerHTML = FACE_SVG);
+
+function hexToRgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+function mixHex(hex, k, toDark) {   // dim a colour toward the background
+  const n = parseInt(hex.slice(1), 16), t = toDark ? 20 : 235;
+  const c = x => Math.round(x + (t - x) * k);
+  return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
 }
-bgColor.oninput = () => applyTheme(bgColor.value);
-bgReset.onclick = () => { bgColor.value = '#0B1020'; applyTheme('#0B1020'); };
-document.querySelectorAll('.swatch').forEach(b => b.onclick = () => { bgColor.value = b.dataset.bg; applyTheme(b.dataset.bg); });
+function applyFace() {
+  const r = document.documentElement.style, dark = S.theme !== 'light';
+  r.setProperty('--eye', S.eyeColor);
+  r.setProperty('--glow', hexToRgba(S.eyeColor, dark ? .55 : .35));
+  r.setProperty('--eye-dim', mixHex(S.eyeColor, .55, dark));
+  r.setProperty('--hair', S.hairColor);
+  r.setProperty('--bow', S.bowColor);
+  document.querySelectorAll('.hair').forEach(h => h.classList.toggle('on', h.classList.contains(S.hair)));
+  document.querySelectorAll('.extra').forEach(x => x.classList.toggle('on', x.classList.contains(S.extra) || (S.blush && x.classList.contains('blushG'))));
+  document.querySelectorAll('.brow').forEach(b => b.style.display = S.brows ? '' : 'none');
+}
+// live preview while fiddling (auto-save then applies)
+[eyeColor, hair, hairColor, extra, bowColor, blush, brows].forEach(el => el.addEventListener('input', () => { saveSettings(); applyFace(); }));
+document.querySelectorAll('#eyePresets button').forEach(b => b.onclick = () => { eyeColor.value = b.dataset.c; saveSettings(); applyFace(); });
+document.querySelectorAll('#hairPresets button').forEach(b => b.onclick = () => { hairColor.value = b.dataset.c; saveSettings(); applyFace(); });
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+  const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = t === 'light' ? '#F4F7FB' : '#070B14';
+}
+theme.onchange = () => { applyTheme(theme.value); saveSettings(); applyFace(); };
+$('guideReset').onclick = () => { jointGuide.value = DEFAULT_GUIDE; saveSettings(); };
 kbBtn.onclick = () => { const open = !consoleBox.classList.contains('open'); consoleBox.classList.toggle('open', open); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
@@ -362,6 +503,18 @@ gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
 closeLog.onclick = () => logSheet.classList.remove('open');
+
+testBtn.onclick = async () => {
+  const key = apiKey.value.trim(); if (!key) { note(keyNote, 'Paste a key first.', 'bad'); return; }
+  note(keyNote, 'Testing…');
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: model.value.trim() || 'claude-sonnet-5', max_tokens: 10, messages: [{ role: 'user', content: 'Say OK' }] }) });
+    const body = await r.text();
+    note(keyNote, r.ok ? 'Key works.' : 'Rejected (' + r.status + '): ' + body.slice(0, 140), r.ok ? 'ok' : 'bad');
+  } catch (e) { note(keyNote, 'Could not reach the API: ' + e.message, 'bad'); }
+};
 
 // ============================================================
 //  Face + status
@@ -411,8 +564,16 @@ function onArmText(t) {
   inbox += t; let nl;
   while ((nl = inbox.indexOf('\n')) >= 0) { const line = inbox.slice(0, nl); inbox = inbox.slice(nl + 1); if (line.trim()) { logLine(line); poseParser(line); } }
 }
-let poseNames = [], collecting = false;
-function poseParser(line) { if (!collecting) return; const m = line.match(/^\s*([a-z0-9-]+)\s+=\s+[\d,]+/i); if (m && m[1] !== 'saved') poseNames.push(m[1]); }
+let poseNames = [], collecting = false, angles = {}, collectingAngles = false;
+function poseParser(line) {
+  if (collecting) { const m = line.match(/^\s*([a-z0-9-]+)\s+=\s+[\d,]+/i); if (m && m[1] !== 'saved') poseNames.push(m[1]); }
+  if (collectingAngles) { const m = line.match(/^\s*([bsewrg])\s+[a-z]+\s+(-?\d+)/i); if (m) angles[m[1].toLowerCase()] = parseInt(m[2], 10); }
+}
+async function readAngles() {
+  if (!rxChar) return angles;
+  collectingAngles = true; await send('?'); await sleep(1200); collectingAngles = false;
+  return angles;
+}
 async function loadPoses() {
   poseNames = []; collecting = true; await send('list'); await sleep(1800); collecting = false;
   note(poses, poseNames.length ? 'Saved poses: ' + poseNames.join(', ') : 'No saved poses on the arm yet.', poseNames.length ? 'ok' : '');
@@ -554,7 +715,7 @@ power.onclick = () => { if (running) stopEverything(); listening ? stopListening
 
 let voices = [];
 function refreshVoices() { try { voices = speechSynthesis.getVoices() || []; } catch (e) {} }
-if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged = () => { refreshVoices(); fillVoiceList(); }; }
+if (window.speechSynthesis) { refreshVoices(); speechSynthesis.onvoiceschanged = refreshVoices; }
 testVoice.onclick = () => {
   // use the un-saved choices from the form so you can audition before saving
   const u = new SpeechSynthesisUtterance(`Hello, I'm ${wakeWord.value.trim() || 'Fredie'}. This is my voice.`); u.lang = accent.value;
@@ -562,39 +723,14 @@ testVoice.onclick = () => {
   const pv = pickVoice(); if (pv.voice) u.voice = pv.voice; u.pitch = pv.pitch;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 };
-const FEMALE = /female|woman|girl|zira|samantha|susan|karen|moira|tessa|fiona|veena|heera|aria|jenny|emma|joanna|salli|kendra|kimberly|ivy|amy|nicole|raveena|aditi|sfg|-f\b/i;
-const MALE = /\bmale|man\b|boy|david|mark|daniel|alex|fred|tom|george|guy|matthew|ryan|joey|justin|brian|russell|william|sfa|-m\b/i;
 function voicesForAccent() {
   const want = S.accent.toLowerCase();
   const c = voices.filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith(want));
   return c.length ? c : voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
 }
-// Returns { voice, pitch }. Pitch is used to fake a gender when the phone has no matching voice.
 function pickVoice() {
-  if (S.voiceName) { const v = voices.find(v => v.name === S.voiceName); if (v) return { voice: v, pitch: 1 }; }
-  const isF = v => FEMALE.test(v.name) && !MALE.test(v.name), isM = v => MALE.test(v.name) && !FEMALE.test(v.name);
-  const rank = pool => pool.find(v => /google/i.test(v.name)) || pool.find(v => /natural|neural|premium/i.test(v.name)) || pool[0] || null;
-  const accentVoices = voicesForAccent();
-  const allEnglish = voices.filter(v => (v.lang || '').toLowerCase().startsWith('en'));
-  if (S.gender === 'male') {
-    const v = rank(accentVoices.filter(isM)) || rank(allEnglish.filter(isM));
-    if (v) return { voice: v, pitch: 1 };
-    // Android usually ships one unlabelled (female-sounding) voice per accent: use it, but lower
-    if (accentVoices.length > 1) return { voice: accentVoices[accentVoices.length - 1], pitch: 0.75 };
-    return { voice: rank(accentVoices), pitch: 0.7 };
-  }
-  if (S.gender === 'female') {
-    const v = rank(accentVoices.filter(isF)) || rank(accentVoices.filter(x => !isM(x))) || rank(allEnglish.filter(isF));
-    return { voice: v || rank(accentVoices), pitch: 1.05 };
-  }
-  return { voice: rank(accentVoices), pitch: 1 };
-}
-function fillVoiceList() {
-  const cur = S.voiceName;
-  voiceName.innerHTML = '<option value="">(auto)</option>';
-  voices.filter(v => (v.lang || '').toLowerCase().startsWith('en')).forEach(v => {
-    const o = document.createElement('option'); o.value = v.name; o.textContent = `${v.name} (${v.lang})`; if (v.name === cur) o.selected = true; voiceName.appendChild(o);
-  });
+  const pool = voicesForAccent();
+  return { voice: pool.find(v => /google/i.test(v.name)) || pool.find(v => /natural|neural|premium/i.test(v.name)) || pool[0] || null, pitch: 1 };
 }
 function say(text) {
   if (!text || !S.talk || !window.speechSynthesis) return;
@@ -725,7 +861,7 @@ async function runGroups(groups) {
     }
     if (running) {
       const reply = [...groups].reverse().map(g => g.reply).find(Boolean);   // last shortcut that has a reply
-      setDoing(reply || 'Done.'); setFace('happy', 1800); if (reply) say(reply);
+      setDoing(reply || 'Done.'); setFace('happy', 1800); say(reply || pickOne(['Done!', 'All done.', 'There you go.', 'Easy.', 'Sorted.']));
     } else { setDoing('Stopped.'); setFace(listening ? 'listening' : 'off'); }
   } catch (e) { setDoing('Send failed: ' + e.message, true); }
   running = false; micResume(AFTER_REPLY_MS);
@@ -757,37 +893,129 @@ async function handleInput(raw, typedIn, conf) {
   const low = whole.toLowerCase().replace(/[.!?]+$/, '').trim();
 
   // ---- small talk and control words ----
-  if (/^(stop|halt|wait|cancel|freeze)$/.test(low)) { if (running) { stopEverything(); setDoing('Stopped.'); say('Stopped'); } return; }
+  if (/^(stop|halt|wait|cancel|freeze)$/.test(low)) { if (running) { stopEverything(); setDoing('Stopped.'); say('Okay, stopping.'); } return; }
   if (/^(go to sleep|sleep|good night|goodbye|bye)$/.test(low)) { goStandby(); return; }
-  if (/^(stop listening|switch off|shut down)$/.test(low)) { say('Stopping'); stopListening(); return; }
+  if (/^(stop listening|switch off|shut down)$/.test(low)) { say('Okay, switching off. See you soon!'); stopListening(); return; }
   if (/^(hello|hi|hey|hey there|hello there|good morning|good afternoon|good evening|namaste)$/.test(low)) {
-    setFace('happy', 2000); setDoing('Hello!'); say(`Hello! I'm ${S.wakeWord}. What can I do for you?`); return;
+    setFace('happy', 2000); setDoing('Hello!'); say(pickOne([`Hey there! ${S.wakeWord} at your service.`, `Hello! Great to see you. What shall we do?`, `Hi! I'm ${S.wakeWord}. Ready when you are.`])); return;
   }
   if (running) { setDoing('Still moving.'); showToast('Still moving'); logLine('[busy] ignored: ' + low); return; }
-  if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your robotic arm.`); return; }
-  if (/^(thank you|thanks|good job|well done|nice)$/.test(low)) { setFace('happy', 2000); say(`You're welcome`); return; }
+  if (/^(who are you|what is your name|what's your name)$/.test(low)) { setFace('happy', 2000); say(`I'm ${S.wakeWord}, your friendly robot arm. Six joints, zero coffee breaks.`); return; }
+  if (/^(thank you|thanks|good job|well done|nice|awesome|great)$/.test(low)) { setFace('happy', 2000); say(pickOne([`Anytime!`, `You're welcome!`, `Happy to help.`, `That's what I'm here for.`])); return; }
 
   const parts = low.split(/\s*(?:,|\band then\b|\bthen\b|\bafter that\b|\band\b)\s*/).filter(Boolean);
   const groups = parts.map(resolveGroup);
   const bad = groups.find(g => g && g.error);
   if (bad) { setDoing(`Heard a joint but no number in "${bad.error}"`, true); say('Which number?'); return; }
   if (groups.every(Boolean)) {
-    if (!rxChar) { setDoing('Not connected to the arm. Open Settings to connect.', true); showToast('Not connected to the arm'); say('Not connected'); return; }
+    if (!rxChar) { setDoing('Not connected to the arm. Open Settings to connect.', true); showToast('Not connected to the arm'); say(`I can't feel my arm. Could you connect me in Settings?`); return; }
     typed.value = '';
     logLine('[run] ' + groups.map(g => g.join(' › ')).join('  ||  '));
     await runGroups(groups);
     return;
   }
-  // unknown sentence: no AI here, so either apologise (if clearly heard) or stay quiet
+  // unknown sentence: AI mode thinks about it; otherwise apologise (if clearly heard) or stay quiet
   const words = low.split(/\s+/).filter(Boolean).length;
   const clear = typedIn || (words >= 2 && (conf === undefined || conf >= S.minConf + 0.1));
+  if (S.ai && (clear || typedIn)) { askAI(whole); return; }
   setHeard(whole + ' ?', true); logLine('[unknown] ' + whole);
   showToast("Didn't understand");
-  if (S.askUnknown && clear) { setDoing("Sorry, I didn't understand that."); say("Sorry, I didn't understand that"); }
+  if (S.askUnknown && clear) confused();
+}
+
+// ============================================================
+//  AI mode: Claude interprets movement and chats back
+// ============================================================
+async function claude(system, user) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': S.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: S.model, max_tokens: 400, system, messages: [{ role: 'user', content: user }] }) });
+  if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 160));
+  const data = await r.json();
+  return data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
+}
+function aiSystem() {
+  const cur = Object.keys(angles).length ? Object.entries(angles).map(([k, v]) => k + ' ' + v).join(', ') : 'unknown';
+  const sc = S.shortcuts.map(r => `  "${r.say}"  ->  ${r.do}`).join('\n');
+  return `You are ${S.wakeWord}, a small six-servo desk robot arm with a big personality: playful, witty, warm, a little cheeky. Keep every spoken line to one short sentence (under 15 words). Never sound like a manual.
+${S.persona.trim() ? 'Owner says about your personality: ' + S.persona.trim() + '\n' : ''}
+HOW YOU MOVE
+Joint commands: "<joint> <angle>" sets an absolute angle 0-180, "<joint> +N" / "<joint> -N" nudges from where it is now.
+${S.jointGuide.trim()}
+Current angles: ${cur}
+Also: "open", "close", "home".
+Saved poses (use "go <name>"): ${poseNames.length ? poseNames.join(', ') : 'none'}
+Owner's shortcuts (use the phrase exactly as a command):
+${sc || '  none'}
+
+RULES
+- Vague amounts: "a bit"/"slightly" = 10-15 degrees, normal = 20-30, "a lot" = 40-60. Stay within 0-180.
+- Prefer a shortcut or pose when one clearly fits; otherwise use joint nudges.
+- Several steps are fine; they run one second apart.
+- MAKE AN EFFORT TO MOVE. If the request could reasonably be a movement, interpret it generously and move. Even for chat, add a small playful gesture when it fits (a nod = "w -15, w +15"; a wave = "r +30, r -60, r +30"; a shrug = "s +10, s -10"; a bow = "s -25, s +25"; a happy wiggle = "b +12, b -24, b +12").
+- Only when you genuinely cannot make sense of it: set "understood": false, commands empty, and a short, varied, light-hearted line in "say" (never the same phrasing twice).
+- If it is unsafe or impossible, empty commands and say why, lightly.
+
+Respond with ONLY a JSON object, no markdown:
+{"understood": true, "commands": ["w -20"], "say": "Looking down. Dropped something?"}`;
+}
+const JOINT_CMD = /^[bsewrg] [+-]?\d{1,3}$/;
+function validateAI(cmds) {
+  const out = [];
+  for (let c of cmds || []) {
+    c = String(c).trim().toLowerCase();
+    if (JOINT_CMD.test(c)) { const n = parseInt(c.slice(2), 10); if (Math.abs(n) <= 180) out.push(c); else logLine('[ai] dropped out-of-range: ' + c); continue; }
+    if (/^(open|close|home)$/.test(c)) { out.push(c); continue; }
+    const m = c.match(/^go ([a-z0-9-]+)$/); if (m && poseNames.includes(m[1])) { out.push(c); continue; }
+    const g = resolveGroup(c); if (g && !g.error) { out.push(...g); continue; }   // a shortcut phrase or pose name
+    logLine('[ai] dropped unknown command: ' + c);
+  }
+  return out;
+}
+async function askAI(text) {
+  if (!S.apiKey) { setDoing('AI mode is on but there is no API key in Settings.', true); showToast('No API key'); say('I need an API key first'); return; }
+  setFace('thinking'); setDoing('Thinking…'); showToast('Thinking…', 4000);
+  try {
+    await readAngles();
+    const out = JSON.parse(await claude(aiSystem(), text));
+    const cmds = validateAI(out.commands);
+    logLine('[ai] ' + JSON.stringify(out));
+    if (out.understood === false || (!cmds.length && !out.say)) { await confused(out.say); return; }   // AI is lost: varied line + head-shake
+    if (out.say) say(out.say);
+    if (!cmds.length) { setDoing(out.say || '…'); setFace('happy', 2000); return; }
+    if (!rxChar) { setDoing('Not connected to the arm.', true); showToast('Not connected to the arm'); return; }
+    await runGroups([cmds]);
+  } catch (e) {
+    setDoing('AI error: ' + e.message, true); logLine('[ai error] ' + e.message);
+    showToast('AI did not answer'); say('My brain glitched. Try that again?');
+    setFace(awake ? 'listening' : 'standby');
+  }
 }
 askBtn.onclick = () => handleInput(typed.value, true);
 typed.addEventListener('keydown', e => { if (e.key === 'Enter') askBtn.onclick(); });
 
+function pickOne(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+const CONFUSED_LINES = [
+  "Oh no! I didn't get you!", "Hmm, that one flew right past me.", "Sorry, my circuits are puzzled.",
+  "I lost you there. One more time?", "Did you say something in robot? I didn't catch it.",
+  "Nope, that didn't compute.", "My ears heard words, my brain heard static.", "You've stumped me. Try again?",
+  "Not sure what you mean, friend.", "That went over my little metal head."
+];
+let lastConfused = -1;
+// Say something different each time, and shake the base left-right like a "no".
+async function confused(customLine) {
+  let i; do { i = Math.floor(Math.random() * CONFUSED_LINES.length); } while (i === lastConfused && CONFUSED_LINES.length > 1);
+  lastConfused = i;
+  const line = customLine || CONFUSED_LINES[i];
+  setDoing(line); setFace('error', 2600); say(line);
+  if (rxChar && !running) {
+    running = true; micPause();
+    try { await send('b +30'); await sleep(700); await send('b -60'); await sleep(900); await send('b +30'); await sleep(600); }
+    catch (e) {}
+    running = false; micResume(AFTER_REPLY_MS);
+  }
+}
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
