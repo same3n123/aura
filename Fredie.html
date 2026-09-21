@@ -174,6 +174,14 @@
   .section { border-bottom: 1px solid var(--line); padding: 8px 0 18px; }
   .section h3 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 0; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  #moves { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  #moves th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
+  #moves td { padding: 3px 2px; }
+  #moves input, #moves select { margin: 0; padding: 9px 6px; font-size: 13px; }
+  #moves .x { background: transparent; color: var(--muted); font-size: 18px; padding: 6px 8px; }
+  .amt { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .amt input { margin: 0; padding: 9px; font-size: 13px; }
+  .amt input[type=number] { flex: 0 0 74px; }
   #jointWords { width: 100%; border-collapse: collapse; margin-top: 6px; }
   #jointWords th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
   #jointWords td { padding: 3px 2px; font-size: 13px; color: var(--muted); }
@@ -192,11 +200,6 @@
   .addSteps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .addSteps button { font-size: 13px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); }
   .addSteps button.cur { border-color: var(--act); color: var(--act); }
-  #shortcuts { width: 100%; border-collapse: collapse; margin-top: 6px; }
-  #shortcuts th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
-  #shortcuts td { padding: 3px 2px; }
-  #shortcuts input { margin: 0; padding: 9px; font-size: 14px; }
-  #shortcuts .x { width: 34px; padding: 9px 0; background: transparent; color: var(--muted); font-size: 18px; }
   .note { font-size: 13px; margin-top: 8px; min-height: 1.3em; color: var(--muted); }
   .note.bad { color: var(--bad); } .note.ok { color: var(--ok); }
   #log { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; white-space: pre-wrap; color: var(--muted); margin: 0; padding: 12px 16px; }
@@ -283,15 +286,21 @@
       <div class="row2" style="margin-top:10px"><button id="addTask" class="act">+ New task</button></div>
     </div>
 
+
+
     <div class="section">
-      <details><summary style="color:var(--muted)">Advanced: text shortcuts</summary>
-      <p class="hint">What you say, what it does, and (optionally) what it says when finished. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence and they run one after the other; the reply spoken is the last one's.</p>
-      <table id="shortcuts">
-        <thead><tr><th style="width:30%">You say</th><th style="width:34%">It does</th><th>It replies (optional)</th><th></th></tr></thead>
-        <tbody id="shortcutRows"></tbody>
+      <h3>Movement phrases</h3>
+      <p class="hint">Natural things you say and the single joint move each one means. "extend forward a little" = the phrase plus an amount word. Edit, add, or remove rows.</p>
+      <table id="moves">
+        <thead><tr><th style="width:38%">You say</th><th>Joint</th><th>Direction</th><th style="width:60px">°</th><th></th></tr></thead>
+        <tbody id="moveRows"></tbody>
       </table>
-      <button id="addRow" style="margin-top:8px">+ Add row</button>
-      </details>
+      <div class="row2" style="margin-top:8px"><button id="addMove">+ Add phrase</button><button id="movesReset">Reset to defaults</button></div>
+      <label>Amount words</label>
+      <div class="amt"><span>a little =</span><input id="littleN" type="number" min="1" max="180"><span>° for</span><input id="littleW" type="text"></div>
+      <div class="amt"><span>a lot =</span><input id="lotN" type="number" min="1" max="180"><span>° for</span><input id="lotW" type="text"></div>
+      <div class="amt"><span>nothing said =</span><input id="defN" type="number" min="1" max="180"><span>°</span></div>
+      <p class="hint">A spoken number always wins: "extend forward 45" moves 45.</p>
     </div>
 
     <div class="section">
@@ -410,12 +419,26 @@ const pill = $('pill'), gear = $('gear'), power = $('power'), face = $('face'), 
 const typed = $('typed'), askBtn = $('askBtn'), logBtn = $('logBtn'), log = $('log');
 const settings = $('settings'), closeSettings = $('closeSettings'), logSheet = $('logSheet'), closeLog = $('closeLog');
 const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
-const shortcutRows = $('shortcutRows'), addRow = $('addRow');
+
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
 const tasksBox = $('tasks'), addTaskBtn = $('addTask');
+const moveRows = $('moveRows'), addMoveBtn = $('addMove'), movesResetBtn = $('movesReset');
+const littleN = $('littleN'), littleW = $('littleW'), lotN = $('lotN'), lotW = $('lotW'), defN = $('defN');
+const DEFAULT_MOVES = [
+  { say: 'extend forward',  j: 'e', d: '+', n: 30 }, { say: 'reach out',       j: 'e', d: '+', n: 30 },
+  { say: 'pull back',       j: 'e', d: '-', n: 30 }, { say: 'come back',       j: 'e', d: '-', n: 30 },
+  { say: 'go up',           j: 's', d: '-', n: 30 }, { say: 'lift',            j: 's', d: '-', n: 30 },
+  { say: 'go down',         j: 's', d: '+', n: 30 }, { say: 'lower',           j: 's', d: '+', n: 30 },
+  { say: 'move left',       j: 'b', d: '+', n: 30 }, { say: 'turn left',       j: 'b', d: '+', n: 30 },
+  { say: 'move right',      j: 'b', d: '-', n: 30 }, { say: 'turn right',      j: 'b', d: '-', n: 30 },
+  { say: 'look up',         j: 'w', d: '+', n: 30 }, { say: 'look down',       j: 'w', d: '-', n: 30 },
+  { say: 'twist right',     j: 'r', d: '+', n: 30 }, { say: 'twist left',      j: 'r', d: '-', n: 30 },
+  { say: 'nod',             j: 'w', d: '-', n: 20 },
+];
+const DEFAULT_AMOUNTS = { littleN: 15, littleW: 'a little, a bit, slightly, a tad', lotN: 45, lotW: 'a lot, much, way, far, big', defN: 30 };
 const DEFAULT_JOINT_WORDS = {
   b: { '+': 'left, anticlockwise',            '-': 'right, clockwise' },
   s: { '+': 'down, lower',                    '-': 'up, raise, higher' },
@@ -465,15 +488,17 @@ const S = {
   get brows() { return LS('brows', '1') === '1'; },
   get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
   get askUnknown() { return LS('askUnknown', '1') === '1'; },
-  get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
   get tasks() { try { return JSON.parse(LS('tasks', '[]')); } catch (e) { return []; } },
+  get moves() { try { const m = JSON.parse(LS('moves', 'null')); return Array.isArray(m) ? m : DEFAULT_MOVES; } catch (e) { return DEFAULT_MOVES; } },
+  get amounts() { try { return Object.assign({}, DEFAULT_AMOUNTS, JSON.parse(LS('amounts', '{}'))); } catch (e) { return DEFAULT_AMOUNTS; } },
 };
 function loadSettingsUI() {
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
-  renderShortcuts(S.shortcuts);
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
+  const am = S.amounts; littleN.value = am.littleN; littleW.value = am.littleW; lotN.value = am.lotN; lotW.value = am.lotW; defN.value = am.defN;
+  renderMoves();
   eyeColor.value = S.eyeColor; hair.value = S.hair; mustache.value = S.mustache; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
   blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
   aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model; persona.value = S.persona;
@@ -483,11 +508,13 @@ function saveSettings() {
   try {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
     set('stepGap', stepGap.value); set('groupGap', groupGap.value);
-    set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
+    set('lang', lang.value); set('talk', talk.value);
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
     const jw = {}; jointInputs.forEach(i => { jw[i.dataset.j] = jw[i.dataset.j] || {}; jw[i.dataset.j][i.dataset.d] = i.value.trim(); }); set('jointWords', JSON.stringify(jw));
+    set('amounts', JSON.stringify({ littleN: +littleN.value || 15, littleW: littleW.value, lotN: +lotN.value || 45, lotW: lotW.value, defN: +defN.value || 30 }));
+    set('moves', JSON.stringify(readMoves()));
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
     set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
     set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
@@ -561,6 +588,51 @@ theme.onchange = () => { applyTheme(theme.value); saveSettings(); applyFace(); }
 $('guideReset').onclick = () => { jointGuide.value = DEFAULT_GUIDE; saveSettings(); };
 $('jointReset').onclick = () => { jointInputs.forEach(i => i.value = DEFAULT_JOINT_WORDS[i.dataset.j][i.dataset.d]); saveSettings(); };
 kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
+
+// ---------- Movement phrases table ----------
+function renderMoves() {
+  moveRows.innerHTML = '';
+  S.moves.forEach(m => addMoveRow(m.say, m.j, m.d, m.n));
+}
+function addMoveRow(say = '', j = 'b', d = '+', n = 30) {
+  const tr = document.createElement('tr');
+  const jointOpts = Object.entries(JOINT_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  tr.innerHTML = `<td><input type="text" class="say" placeholder="extend forward" autocapitalize="none"></td>
+                  <td><select class="j">${jointOpts}</select></td><td><select class="d"></select></td>
+                  <td><input type="number" class="n" min="1" max="180"></td><td><button type="button" class="x">×</button></td>`;
+  const q = c => tr.querySelector(c);
+  q('.say').value = say; q('.j').value = j; q('.d').innerHTML = dirOptions(j).replace(/<option value="=">.*?<\/option>/, ''); q('.d').value = d; q('.n').value = n;
+  q('.j').onchange = () => { const cur = q('.d').value; q('.d').innerHTML = dirOptions(q('.j').value).replace(/<option value="=">.*?<\/option>/, ''); q('.d').value = cur; saveSettings(); };
+  q('.x').onclick = () => { tr.remove(); saveSettings(); };
+  moveRows.appendChild(tr);
+}
+function readMoves() {
+  return [...moveRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), j: tr.querySelector('.j').value, d: tr.querySelector('.d').value, n: Math.max(1, Math.min(180, parseInt(tr.querySelector('.n').value, 10) || 30)) })).filter(m => m.say);
+}
+addMoveBtn.onclick = () => { addMoveRow(); moveRows.lastChild.querySelector('.say').focus(); };
+movesResetBtn.onclick = () => { localStorage.setItem('aura.moves', JSON.stringify(DEFAULT_MOVES)); renderMoves(); saveSettings(); };
+
+// "extend forward a little" -> "e +15"; "move right 40" -> "b -40"
+const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function matchMove(t) {
+  let low = ' ' + wordsToDigits(' ' + t.toLowerCase() + ' ').replace(/[°º]/g, ' ').replace(/\s+/g, ' ').trim() + ' ';
+  const am = S.amounts;
+  // 1. work out the amount, then take the amount words OUT so "move a little right" becomes "move right"
+  const num = low.match(/\b(\d{1,3})\b/);
+  let n = null;
+  if (num) { n = Math.min(180, parseInt(num[1], 10)); low = low.replace(num[0], ' '); }
+  for (const w of wordList(am.littleW)) { const re = new RegExp('\\b' + esc(w) + '\\b'); if (re.test(low)) { if (n === null) n = am.littleN; low = low.replace(re, ' '); } }
+  for (const w of wordList(am.lotW))    { const re = new RegExp('\\b' + esc(w) + '\\b'); if (re.test(low)) { if (n === null) n = am.lotN;    low = low.replace(re, ' '); } }
+  low = low.replace(/\b(degrees?|deg|please|now|just|very|more)\b/g, ' ').replace(/\s+/g, ' ');
+  // 2. longest matching phrase wins
+  let best = null;
+  for (const m of S.moves) {
+    if (!m.say) continue;
+    if (new RegExp('\\b' + esc(m.say.toLowerCase()) + '\\b').test(low) && (!best || m.say.length > best.say.length)) best = m;
+  }
+  if (!best) return null;
+  return `${best.j} ${best.d}${n === null ? (best.n || am.defN) : n}`;
+}
 
 // ---------- Tasks builder ----------
 const JOINT_NAMES = { b: 'Base', s: 'Shoulder', e: 'Elbow', w: 'Wrist', r: 'Roll', g: 'Gripper' };
@@ -657,24 +729,9 @@ function compileTask(t, depth = 0) {
 }
 
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
-function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do, r.reply || '')); }
-function addShortcutRow(say = '', does = '', reply = '') {
-  const tr = document.createElement('tr');
-  tr.innerHTML = '<td><input type="text" class="say" placeholder="command one" autocapitalize="none"></td>' +
-                 '<td><input type="text" class="do" placeholder="b 10, s 90" autocapitalize="none"></td>' +
-                 '<td><input type="text" class="reply" placeholder="Done, boss"></td>' +
-                 '<td><button type="button" class="x" aria-label="remove">×</button></td>';
-  tr.querySelector('.say').value = say; tr.querySelector('.do').value = does; tr.querySelector('.reply').value = reply;
-  tr.querySelector('.x').onclick = () => tr.remove();
-  shortcutRows.appendChild(tr);
-}
-function readShortcuts() {
-  return [...shortcutRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), do: tr.querySelector('.do').value.trim(), reply: tr.querySelector('.reply').value.trim() })).filter(r => r.say && r.do);
-}
 try { loadSettingsUI(); loadTasks(); } catch (e) {}
 saveBtn.onclick = saveSettings;
 settings.querySelector('.body').addEventListener('change', e => { if (e.target.matches('input, select, textarea')) saveSettings(); });
-addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
 gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
@@ -891,15 +948,15 @@ function voskGrammar() {
   const n = S.wakeWord.toLowerCase();
   const dbl = x => x.replace(/([bcdfgklmnprst])(ie|y|i|e|ey)$/, '$1$1$2');
   [n, n.replace(/ie$/, 'y'), n.replace(/y$/, 'ie'), n.replace(/ie$/, 'ey'), dbl(n), dbl(n.replace(/ie$/, 'y')), dbl(n.replace(/y$/, 'ie'))].forEach(add);
-  S.shortcuts.forEach(r => add(r.say));
   poseNames.forEach(add);
   Object.values(S.jointWords).forEach(j => { add(j['+']); add(j['-']); });
+  S.moves.forEach(m => { add(m.say); words.add(m.say.toLowerCase()); });
+  add(S.amounts.littleW); add(S.amounts.lotW);
   ['zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred and then',
    'move turn set go to the a bit little lot up down left right plus minus by degrees',
    'base shoulder elbow wrist roll gripper hand claw open close home relax stop halt wait cancel freeze',
    'hello hi hey thanks thank you good morning evening night bye goodbye sleep who are what is your name',
    'can could would you please now me it and'].forEach(add);
-  S.shortcuts.forEach(r => words.add(r.say.toLowerCase()));         // whole phrases too
   tasks.forEach(t => { if (t.say) { add(t.say); words.add(t.say.toLowerCase()); } });
   return JSON.stringify([...words]);
 }
@@ -1072,7 +1129,8 @@ function parseJointMove(t) {
     const re = new RegExp('\\b' + w + '\\b'); if (re.test(t)) { joint = k; t = t.replace(re, ' '); break outer; } }
   if (!joint) return null;
   const num = t.match(/(-?\d+)/);
-  const n = num ? Math.abs(parseInt(num[1], 10)) : 30;                     // no amount said = 30 degrees
+  const am = S.amounts;
+  const n = num ? Math.abs(parseInt(num[1], 10)) : hasWord(orig, wordList(am.littleW)) ? am.littleN : hasWord(orig, wordList(am.lotW)) ? am.lotN : am.defN;
   const jw = S.jointWords[joint] || {};
   const plusWords = wordList(jw['+']), minusWords = wordList(jw['-']);
   if (num && num[1].startsWith('-')) return `${joint} -${n}`;
@@ -1102,7 +1160,6 @@ function fuzzyPick(said, candidates, keyOf) {
   const allow = s.length >= 8 ? 2 : s.length >= 3 ? 1 : 0;
   return best && bestD <= allow ? best : null;
 }
-function matchShortcut(t) { return fuzzyPick(t, S.shortcuts, r => r.say); }   // returns the whole row or null
 function matchPose(t) { const said = t.replace(/^(go|goto|go to|move to|run)\s+/, ''); return fuzzyPick(said, poseNames, n => n); }
 
 // one piece of a sentence -> a direct command string, or {error}, or null (needs Claude)
@@ -1110,6 +1167,7 @@ function resolveDirect(part) {
   let t = part.trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase().replace(/\b(\w+)( \1\b)+/g, '$1');
   if (!t) return null;
   const pm = matchPose(t); if (pm) return 'go ' + pm;
+  const mv = matchMove(t); if (mv) return mv;
   const jm = parseJointMove(t); if (jm) return jm;
   return RAW.test(t) ? t : null;
 }
@@ -1121,7 +1179,6 @@ function findEmbedded(part) {
   for (let len = Math.min(words.length, 6); len >= 1; len--) {
     for (let i = 0; i + len <= words.length; i++) {
       const win = words.slice(i, i + len).join(' ');
-      const sc = matchShortcut(win); if (sc) return { shortcut: sc };
       if (len >= 1) { const pm = matchPose(win); if (pm && (len > 1 || flat(win) === flat(pm))) return { pose: pm }; }
     }
   }
@@ -1136,20 +1193,12 @@ function resolveGroup(part) {
     outer: for (let len = Math.min(words.length, 6); len >= 1; len--) for (let i = 0; i + len <= words.length; i++) { const m = matchTask(words.slice(i, i + len).join(' ')); if (m) { tk = m; break outer; } }
   }
   if (tk) { const cmds = compileTask(tk); cmds.reply = tk.reply || ''; return cmds; }
-  let sc = matchShortcut(part);
   let embeddedPose = null;
-  if (!sc && part.split(/\s+/).length >= 2 && !parseJointMove(part)) {
+  if (part.split(/\s+/).length >= 2 && !parseJointMove(part) && !matchMove(part)) {
     const f = findEmbedded(part);
-    if (f && f.shortcut) sc = f.shortcut;
     if (f && f.pose) embeddedPose = f.pose;
   }
   if (embeddedPose) return ['go ' + embeddedPose];
-  if (sc) {
-    const cmds = sc.do.split(/\s*(?:,|\bthen\b|\band\b|;)\s*/).filter(Boolean)
-                      .map(c => { const r = resolveDirect(c); return (r && !r.error) ? r : c.trim().toLowerCase(); });
-    cmds.reply = sc.reply || '';                  // ride along with the group
-    return cmds;
-  }
   const r = resolveDirect(part); if (r === null) return null; if (r.error) return r; return [r];
 }
 
@@ -1248,7 +1297,7 @@ async function claude(system, user) {
 }
 function aiSystem() {
   const cur = Object.keys(angles).length ? Object.entries(angles).map(([k, v]) => k + ' ' + v).join(', ') : 'unknown';
-  const sc = [...tasks.filter(t => t.say).map(t => `  "${t.say}"  ->  ${compileTask(t).join(', ')}`), ...S.shortcuts.map(r => `  "${r.say}"  ->  ${r.do}`)].join('\n');
+  const sc = tasks.filter(t => t.say).map(t => `  "${t.say}"  ->  ${compileTask(t).join(', ')}`).join('\n');
   return `You are ${S.wakeWord}, a small six-servo desk robot arm with a big personality: playful, witty, warm, a little cheeky. Keep every spoken line to one short sentence (under 15 words). Never sound like a manual.
 ${S.persona.trim() ? 'Owner says about your personality: ' + S.persona.trim() + '\n' : ''}
 HOW YOU MOVE
@@ -1257,8 +1306,10 @@ ${S.jointGuide.trim()}
 Current angles: ${cur}
 Also: "open", "close", "home".
 Saved poses (use "go <name>"): ${poseNames.length ? poseNames.join(', ') : 'none'}
-Owner's shortcuts (use the phrase exactly as a command):
+Owner's tasks (use the phrase exactly as a command):
 ${sc || '  none'}
+Owner's movement phrases (say the phrase, optionally with "a little" / "a lot" / a number):
+${S.moves.map(m => `  "${m.say}" = ${JOINT_NAMES[m.j]} ${m.d}${m.n}`).join('\n')}
 
 RULES
 - Vague amounts: "a bit"/"slightly" = 10-15 degrees, normal = 20-30, "a lot" = 40-60. Stay within 0-180.
