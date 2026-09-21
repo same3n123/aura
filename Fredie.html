@@ -313,7 +313,7 @@
 <div id="chatMode" class="mode">
 <div id="bar">
   <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.1</small></h1>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.2</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -412,6 +412,13 @@
       <div class="amt"><span>a lot =</span><input id="lotN" type="number" min="1" max="180"><span>° for</span><input id="lotW" type="text"></div>
       <div class="amt"><span>nothing said =</span><input id="defN" type="number" min="1" max="180"><span>°</span></div>
       <p class="hint">A spoken number always wins: "extend forward 45" moves 45.</p>
+    </div>
+
+    <div class="section">
+      <h3>Joint types</h3>
+      <p class="hint">What the two joints above the elbow physically do. Everything - the 3D model, "look down", "twist", the AI's guide - follows this.</p>
+      <label>Wrist (w, channel 3)<select id="typeW"><option value="rotate">turns / rotates the gripper</option><option value="tilt">tilts up and down</option></select></label>
+      <label>Roll (r, channel 4)<select id="typeR"><option value="tilt">tilts up and down</option><option value="rotate">turns / rotates the gripper</option></select></label>
     </div>
 
     <div class="section">
@@ -556,9 +563,26 @@ const stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
+const typeW = $('typeW'), typeR = $('typeR');
 const tasksBox = $('tasks'), addTaskBtn = $('addTask');
 const moveRows = $('moveRows'), addMoveBtn = $('addMove'), movesResetBtn = $('movesReset');
 const littleN = $('littleN'), littleW = $('littleW'), lotN = $('lotN'), lotW = $('lotW'), defN = $('defN');
+function jointTypes() { return { b: 'rotate', s: 'tilt', e: 'tilt', w: LS('typeW', 'rotate'), r: LS('typeR', 'tilt'), g: 'grip' }; }
+const tiltJoint = () => jointTypes().r === 'tilt' ? 'r' : (jointTypes().w === 'tilt' ? 'w' : null);
+const turnJoint = () => jointTypes().w === 'rotate' ? 'w' : (jointTypes().r === 'rotate' ? 'r' : null);
+function defaultMoves() {
+  const T = tiltJoint(), R = turnJoint(), out = [
+    { say: 'extend forward',  j: 'e', d: '+', n: 30 }, { say: 'reach out',       j: 'e', d: '+', n: 30 },
+    { say: 'pull back',       j: 'e', d: '-', n: 30 }, { say: 'come back',       j: 'e', d: '-', n: 30 },
+    { say: 'go up',           j: 's', d: '-', n: 30 }, { say: 'lift',            j: 's', d: '-', n: 30 },
+    { say: 'go down',         j: 's', d: '+', n: 30 }, { say: 'lower',           j: 's', d: '+', n: 30 },
+    { say: 'move left',       j: 'b', d: '+', n: 30 }, { say: 'turn left',       j: 'b', d: '+', n: 30 },
+    { say: 'move right',      j: 'b', d: '-', n: 30 }, { say: 'turn right',      j: 'b', d: '-', n: 30 },
+  ];
+  if (T) out.push({ say: 'look up', j: T, d: '+', n: 30 }, { say: 'look down', j: T, d: '-', n: 30 }, { say: 'nod', j: T, d: '-', n: 20 });
+  if (R) out.push({ say: 'twist right', j: R, d: '+', n: 30 }, { say: 'twist left', j: R, d: '-', n: 30 }, { say: 'rotate the gripper', j: R, d: '+', n: 45 });
+  return out;
+}
 const DEFAULT_MOVES = [
   { say: 'extend forward',  j: 'e', d: '+', n: 30 }, { say: 'reach out',       j: 'e', d: '+', n: 30 },
   { say: 'pull back',       j: 'e', d: '-', n: 30 }, { say: 'come back',       j: 'e', d: '-', n: 30 },
@@ -571,14 +595,17 @@ const DEFAULT_MOVES = [
   { say: 'nod',             j: 'w', d: '-', n: 20 },
 ];
 const DEFAULT_AMOUNTS = { littleN: 15, littleW: 'a little, a bit, slightly, a tad', lotN: 45, lotW: 'a lot, much, way, far, big', defN: 30 };
-const DEFAULT_JOINT_WORDS = {
-  b: { '+': 'left, anticlockwise',            '-': 'right, clockwise' },
-  s: { '+': 'down, lower',                    '-': 'up, raise, higher' },
-  e: { '+': 'forward, out, extend, up',       '-': 'back, in, fold, down' },
-  w: { '+': 'up, raise, higher',              '-': 'down, lower' },
-  r: { '+': 'right, clockwise',               '-': 'left, anticlockwise, counterclockwise' },
-  g: { '+': 'open',                           '-': 'close' },
-};
+function defaultJointWords() {
+  const t = jointTypes(), turn = { '+': 'right, clockwise', '-': 'left, anticlockwise, counterclockwise' }, tilt = { '+': 'up, raise, higher', '-': 'down, lower' };
+  return {
+    b: { '+': 'left, anticlockwise',            '-': 'right, clockwise' },
+    s: { '+': 'down, lower',                    '-': 'up, raise, higher' },
+    e: { '+': 'forward, out, extend, up',       '-': 'back, in, fold, down' },
+    w: t.w === 'rotate' ? { ...turn } : { ...tilt },
+    r: t.r === 'rotate' ? { ...turn } : { ...tilt },
+    g: { '+': 'open',                           '-': 'close' },
+  };
+}
 const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast'), level = $('level'), levelBar = level.querySelector('i');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
@@ -586,12 +613,16 @@ const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = 
 // ============================================================
 //  Settings
 // ============================================================
-const DEFAULT_GUIDE = `b = base: turns the whole arm. Higher = left, lower = right.
-s = shoulder: lifts the arm. Higher = up, lower = down.
+function defaultGuide() {
+  const t = jointTypes();
+  const desc = (name, type) => type === 'rotate' ? `${name}: turns the gripper around the forearm. Higher = clockwise, lower = anticlockwise. 90 is straight.` : `${name}: tilts the gripper. Higher = looks up, lower = looks down.`;
+  return `b = base: turns the whole arm. Higher = left, lower = right.
+s = shoulder: lifts the arm. Higher = down, lower = up.
 e = elbow: folds the forearm. Higher = extends forward, lower = folds in.
-w = wrist: tilts the gripper. Higher = looks up, lower = looks down.
-r = roll: twists the gripper. 90 is level.
+w = ${desc('wrist', t.w)}
+r = ${desc('roll', t.r)}
 g = gripper: jaws. "open" and "close" are easier than numbers.`;
+}
 const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
 const S = {
   get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
@@ -603,14 +634,14 @@ const S = {
   get ai() { return LS('ai', '0') === '1'; },
   get apiKey() { return LS('apiKey', ''); },
   get model() { return LS('model', 'claude-sonnet-5'); },
-  get jointGuide() { const g = LS('jointGuide', ''); return g.trim() ? g : DEFAULT_GUIDE; },   // blank = use the default
+  get jointGuide() { const g = LS('jointGuide', ''); return g.trim() ? g : defaultGuide(); },   // blank = use the default
   get persona() { return LS('persona', ''); },
   get wakeWord() { return (LS('wakeWord', 'Fredie') || 'Fredie').trim(); },
   get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
   get accent() { return LS('accent', 'en-US'); },
   get theme() { return LS('theme', 'dark'); },
   get engine() { return LS('engine', 'vosk'); },
-  get jointWords() { try { const j = JSON.parse(LS('jointWords', 'null')); return j || DEFAULT_JOINT_WORDS; } catch (e) { return DEFAULT_JOINT_WORDS; } },
+  get jointWords() { try { const j = JSON.parse(LS('jointWords', 'null')); return j || defaultJointWords(); } catch (e) { return defaultJointWords(); } },
   get modelUrl() { return LS('modelUrl', 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz'); },
   get eyeColor() { return LS('eyeColor', '#5EEBFF'); },
   get hair() { return LS('hair', 'none'); },
@@ -623,13 +654,14 @@ const S = {
   get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
   get askUnknown() { return LS('askUnknown', '1') === '1'; },
   get tasks() { try { return JSON.parse(LS('tasks', '[]')); } catch (e) { return []; } },
-  get moves() { try { const m = JSON.parse(LS('moves', 'null')); return Array.isArray(m) ? m : DEFAULT_MOVES; } catch (e) { return DEFAULT_MOVES; } },
+  get moves() { try { const m = JSON.parse(LS('moves', 'null')); return Array.isArray(m) ? m : defaultMoves(); } catch (e) { return defaultMoves(); } },
   get amounts() { try { return Object.assign({}, DEFAULT_AMOUNTS, JSON.parse(LS('amounts', '{}'))); } catch (e) { return DEFAULT_AMOUNTS; } },
 };
 function loadSettingsUI() {
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; listenGap.value = S.listenGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
+  typeW.value = jointTypes().w; typeR.value = jointTypes().r;
   const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
   const am = S.amounts; littleN.value = am.littleN; littleW.value = am.littleW; lotN.value = am.lotN; lotW.value = am.lotW; defN.value = am.defN;
   renderMoves();
@@ -647,6 +679,7 @@ function saveSettings() {
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
     const jw = {}; jointInputs.forEach(i => { jw[i.dataset.j] = jw[i.dataset.j] || {}; jw[i.dataset.j][i.dataset.d] = i.value.trim(); }); set('jointWords', JSON.stringify(jw));
+    set('typeW', typeW.value); set('typeR', typeR.value);
     set('amounts', JSON.stringify({ littleN: +littleN.value || 15, littleW: littleW.value, lotN: +lotN.value || 45, lotW: lotW.value, defN: +defN.value || 30 }));
     set('moves', JSON.stringify(readMoves()));
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
@@ -719,8 +752,16 @@ function applyTheme(t) {
   const meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.content = t === 'light' ? '#F4F7FB' : '#070B14';
 }
 theme.onchange = () => { applyTheme(theme.value); saveSettings(); applyFace(); };
-$('guideReset').onclick = () => { jointGuide.value = DEFAULT_GUIDE; saveSettings(); };
-$('jointReset').onclick = () => { jointInputs.forEach(i => i.value = DEFAULT_JOINT_WORDS[i.dataset.j][i.dataset.d]); saveSettings(); };
+$('guideReset').onclick = () => { jointGuide.value = defaultGuide(); saveSettings(); };
+[typeW, typeR].forEach(el => el.addEventListener('change', () => {
+  saveSettings();
+  const d = defaultJointWords(); jointInputs.forEach(i => { if (i.dataset.j === 'w' || i.dataset.j === 'r') i.value = d[i.dataset.j][i.dataset.d]; });
+  localStorage.setItem('aura.moves', JSON.stringify(defaultMoves())); renderMoves();
+  if (!localStorage.getItem('aura.jointGuide') || localStorage.getItem('aura.jointGuide') === '') jointGuide.value = defaultGuide();
+  saveSettings(); showToast('Joint types updated - phrases and words refreshed');
+  if (threeReady) rebuild3d();
+}));
+$('jointReset').onclick = () => { const d = defaultJointWords(); jointInputs.forEach(i => i.value = d[i.dataset.j][i.dataset.d]); saveSettings(); };
 kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
 // ---------- Movement phrases table ----------
@@ -744,7 +785,7 @@ function readMoves() {
   return [...moveRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), j: tr.querySelector('.j').value, d: tr.querySelector('.d').value, n: Math.max(1, Math.min(180, parseInt(tr.querySelector('.n').value, 10) || 30)) })).filter(m => m.say);
 }
 addMoveBtn.onclick = () => { addMoveRow(); moveRows.lastChild.querySelector('.say').focus(); };
-movesResetBtn.onclick = () => { localStorage.setItem('aura.moves', JSON.stringify(DEFAULT_MOVES)); renderMoves(); saveSettings(); };
+movesResetBtn.onclick = () => { localStorage.setItem('aura.moves', JSON.stringify(defaultMoves())); renderMoves(); saveSettings(); };
 
 // "extend forward a little" -> "e +15"; "move right 40" -> "b -40"
 const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1750,12 +1791,12 @@ function build3d() {
   const box = $('three');
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-  cam.position.set(13, 10, 17);
+  cam.position.set(15, 11, 20);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   box.appendChild(renderer.domElement);
   const controls = new THREE.OrbitControls(cam, renderer.domElement);
-  controls.target.set(0, 6, 0); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.52; controls.minDistance = 8; controls.maxDistance = 40;
+  controls.target.set(0, 6.5, 0); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.52; controls.minDistance = 8; controls.maxDistance = 40;
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 0.9));
   const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(5, 10, 6); scene.add(sun);
@@ -1784,19 +1825,25 @@ function build3d() {
   elbow.add(cap(0.65, 1.7, blue, 'e'));
   const fore = mesh(new THREE.BoxGeometry(0.75, 3.6, 0.7), blue, 'e'); fore.position.y = 1.8; elbow.add(fore);
 
-  // wrist pitch
-  const wrist = new THREE.Group(); wrist.position.y = 3.6; elbow.add(wrist);
-  wrist.add(cap(0.5, 1.3, blue, 'w'));
-  const wristBlock = mesh(new THREE.BoxGeometry(0.7, 0.9, 0.6), blue, 'w'); wristBlock.position.y = 0.45; wrist.add(wristBlock);
+  const types = jointTypes();
+  const jointBody = (type, r, mat, name) => type === 'rotate'
+    ? (() => { const c = mesh(new THREE.CylinderGeometry(r, r, 0.9, 28), mat, name); c.position.y = 0.45; return c; })()   // a turning collar
+    : cap(r, r * 2.6, mat, name);                                                                                          // a sideways hinge
 
-  // roll about the forearm axis
-  const roll = new THREE.Group(); roll.position.y = 0.9; wrist.add(roll);
-  const palm = mesh(new THREE.BoxGeometry(1.5, 0.7, 0.9), white, 'r'); palm.position.y = 0.35; roll.add(palm);
-  const knuckles = mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 20), dark, 'r'); knuckles.rotation.z = Math.PI / 2; knuckles.position.y = 0.75; roll.add(knuckles);
+  // wrist (channel 3): turns or tilts depending on the setting
+  const wrist = new THREE.Group(); wrist.position.y = 3.6; elbow.add(wrist);
+  wrist.add(jointBody(types.w, 0.5, blue, 'w'));
+  const wristBlock = mesh(new THREE.BoxGeometry(0.7, 0.9, 0.6), blue, 'w'); wristBlock.position.y = 0.95; wrist.add(wristBlock);
+
+  // roll (channel 4): turns or tilts depending on the setting
+  const roll = new THREE.Group(); roll.position.y = 1.4; wrist.add(roll);
+  roll.add(jointBody(types.r, 0.45, blue, 'r'));
+  const palm = mesh(new THREE.BoxGeometry(1.5, 0.7, 0.9), white, 'r'); palm.position.y = 1.25; roll.add(palm);
+  const knuckles = mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 20), dark, 'r'); knuckles.rotation.z = Math.PI / 2; knuckles.position.y = 1.65; roll.add(knuckles);
 
   // gripper: two fingers that swing open about Z
   const fingerL = new THREE.Group(), fingerR = new THREE.Group();
-  fingerL.position.set(-0.55, 0.75, 0); fingerR.position.set(0.55, 0.75, 0); roll.add(fingerL); roll.add(fingerR);
+  fingerL.position.set(-0.55, 1.65, 0); fingerR.position.set(0.55, 1.65, 0); roll.add(fingerL); roll.add(fingerR);
   for (const [fg, sgn] of [[fingerL, -1], [fingerR, 1]]) {
     const f1 = mesh(new THREE.BoxGeometry(0.28, 1.4, 0.55), blue, 'g'); f1.position.y = 0.7; fg.add(f1);
     const f2 = mesh(new THREE.BoxGeometry(0.24, 1.1, 0.5), blue, 'g'); f2.position.set(-sgn * 0.18, 1.85, 0); f2.rotation.z = sgn * 0.35; fg.add(f2);
@@ -1819,7 +1866,8 @@ function build3d() {
 
   const resize = () => { const w = box.clientWidth, h = box.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
   window.addEventListener('resize', resize); T.resize = resize; resize();
-  (function loop() { requestAnimationFrame(loop); if (!threeMode.classList.contains('show')) return; controls.update(); animatePose(); renderer.render(scene, cam); })();
+  const myRenderer = renderer;
+  (function loop() { if (T.renderer !== myRenderer) return; requestAnimationFrame(loop); if (!threeMode.classList.contains('show')) return; controls.update(); animatePose(); renderer.render(scene, cam); })();
   threeReady = true;
 }
 
@@ -1828,11 +1876,13 @@ const shown = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };
 function animatePose() {
   const d = x => x * Math.PI / 180;
   for (const j of J3) shown[j] += (pose3[j] - shown[j]) * 0.18;
+  const t = jointTypes();
   T.base.rotation.y     = d(shown.b - 90);
   T.shoulder.rotation.x = d(shown.s - 90);
   T.elbow.rotation.x    = d(shown.e - 90);
-  T.wrist.rotation.x    = d(shown.w - 90);
-  T.roll.rotation.y     = d(shown.r - 90);
+  T.wrist.rotation.set(0, 0, 0); T.roll.rotation.set(0, 0, 0);
+  if (t.w === 'rotate') T.wrist.rotation.y = d(shown.w - 90); else T.wrist.rotation.x = d(shown.w - 90);
+  if (t.r === 'rotate') T.roll.rotation.y  = d(shown.r - 90); else T.roll.rotation.x  = d(shown.r - 90);
   const open = d(5 + (shown.g / 180) * 40);
   T.fingerL.rotation.z = open; T.fingerR.rotation.z = -open;
 }
@@ -1843,6 +1893,7 @@ function highlight() {
   }
 }
 const JOINT_LABEL = { b: 'Base', s: 'Shoulder', e: 'Elbow', w: 'Wrist', r: 'Roll', g: 'Gripper' };
+const jointLabel = j => JOINT_LABEL[j] + ((j === 'w' || j === 'r') ? (jointTypes()[j] === 'rotate' ? ' (turns)' : ' (tilts)') : '');
 function selectJoint(j) {
   sel3 = j; highlight();
   [...$('jointChips').children].forEach(c => c.classList.toggle('on', c.dataset.j === j));
@@ -1946,12 +1997,20 @@ function adjustJoint() {
   };
 }
 
+function rebuild3d() {
+  // throw the scene away and build again with the current joint types
+  try { T.renderer.domElement.remove(); T.renderer.dispose(); } catch (e) {}
+  threeReady = false; build3d(); highlight();
+}
+let threeWired = false;
 function enter3d() {
   if (!threeReady) {
     if (typeof THREE === 'undefined') { $('threeStatus').textContent = '3D library did not load (no internet?).'; return; }
     build3d();
+    if (threeWired) { highlight(); setTimeout(() => T.resize && T.resize(), 50); if (rxChar) read3d(); return; }
+    threeWired = true;
     const chips = $('jointChips');
-    J3.forEach(j => { const b = document.createElement('button'); b.dataset.j = j; b.textContent = JOINT_LABEL[j]; b.onclick = () => selectJoint(j); chips.appendChild(b); });
+    J3.forEach(j => { const b = document.createElement('button'); b.dataset.j = j; b.textContent = jointLabel(j); b.onclick = () => selectJoint(j); chips.appendChild(b); });
     $('calibBtn').onclick = startCalib; $('adjustBtn').onclick = adjustJoint;
     $('wizNext').onclick = wizNext; $('wizCancel').onclick = () => { $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext; wizEnd('Cancelled.'); };
     $('jointSlider').oninput = e => setJoint(sel3, +e.target.value);
