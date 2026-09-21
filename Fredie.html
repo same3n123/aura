@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Fredie">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js"></script>
 <style>
   :root {
     --bg: #070B14; --bg2: #0F1626; --panel: #141C2E; --line: #24304A;
@@ -275,7 +276,12 @@
           <option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option>
         </select></label>
       <div class="row2"><button id="testVoice">Test voice</button></div>
-      <label>Language it listens for
+      <label>Listening engine
+        <select id="engine"><option value="vosk">On-device (no beeps, works offline)</option><option value="phone">Phone's own (Google, beeps on Android)</option></select></label>
+      <p class="hint">On-device downloads a 40 MB speech model the first time (about a minute), then keeps it. It knows your shortcut phrases and pose names, so commands are caught more reliably. With AI mode on it listens for free speech instead.</p>
+      <label>Speech model URL (advanced)
+        <input id="modelUrl" type="text" value="https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz"></label>
+      <label>Language the phone engine listens for
         <select id="lang">
           <option value="en-IN">English (India)</option><option value="en-US">English (US)</option>
           <option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option>
@@ -353,7 +359,7 @@ const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses
 const shortcutRows = $('shortcutRows'), addRow = $('addRow');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
-const testVoice = $('testVoice'), theme = $('theme');
+const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const eyeColor = $('eyeColor'), hair = $('hair'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
@@ -382,6 +388,8 @@ const S = {
   get awakeSecs() { return parseFloat(LS('awakeSecs', '30')) || 30; },
   get accent() { return LS('accent', 'en-US'); },
   get theme() { return LS('theme', 'dark'); },
+  get engine() { return LS('engine', 'vosk'); },
+  get modelUrl() { return LS('modelUrl', 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz'); },
   get eyeColor() { return LS('eyeColor', '#5EEBFF'); },
   get hair() { return LS('hair', 'none'); },
   get hairColor() { return LS('hairColor', '#FF8A3D'); },
@@ -397,7 +405,7 @@ function loadSettingsUI() {
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
   renderShortcuts(S.shortcuts);
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
-  theme.value = S.theme; applyTheme(S.theme);
+  theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   eyeColor.value = S.eyeColor; hair.value = S.hair; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
   blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
   aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model; persona.value = S.persona;
@@ -410,7 +418,7 @@ function saveSettings() {
     set('lang', lang.value); set('talk', talk.value); set('shortcuts', JSON.stringify(readShortcuts()));
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
-    set('theme', theme.value);
+    set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('hairColor', hairColor.value); set('extra', extra.value);
     set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
     set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
@@ -658,8 +666,91 @@ function onSpeech(alts) {
 let micActive = false, ignoreUntil = 0;
 const RESTART_MS = 400, AFTER_REPLY_MS = 1200;
 function updateEars() { ears.classList.toggle('show', listening && awake && micActive && !speaking && !running); }
-function startRec() { if (!rec || !listening || micActive) return; try { rec.start(); } catch (e) { logLine('[mic] start failed: ' + e.message); } }
+function startRec() {
+  if (!listening || micActive) return;
+  if (S.engine === 'vosk') { voskStart(); return; }
+  if (!rec) return;
+  try { rec.start(); } catch (e) { logLine('[mic] start failed: ' + e.message); }
+}
 setInterval(() => { if (listening && !micActive) startRec(); }, 3000);   // heartbeat: never stay deaf
+
+// ============================================================
+//  On-device recognition (Vosk): no beeps, offline, knows our vocabulary
+// ============================================================
+let voskModel = null, voskRec = null, voskCtx = null, voskStream = null, voskNode = null, voskLoading = false;
+
+async function loadVoskModel() {
+  if (voskModel) return voskModel;
+  if (typeof Vosk === 'undefined') throw new Error('speech library did not load (no internet on first use?)');
+  voskLoading = true;
+  setFace('thinking'); setDoing('Loading speech model… first time takes about a minute'); showToast('Loading speech model…', 60000);
+  try {
+    // keep the model in the browser's cache storage so it survives reloads
+    let url = S.modelUrl;
+    try {
+      const cache = await caches.open('aura-vosk');
+      let res = await cache.match(url);
+      if (!res) { res = await fetch(url); if (!res.ok) throw new Error('model download failed: ' + res.status); await cache.put(url, res.clone()); }
+      url = URL.createObjectURL(await res.blob());
+    } catch (e) { logLine('[vosk] cache skipped: ' + e.message); }
+    voskModel = await Vosk.createModel(url);
+    logLine('[vosk] model ready');
+  } finally { voskLoading = false; toast.classList.remove('show'); }
+  return voskModel;
+}
+
+// Every word the command engine should know. Single words so any combination is allowed.
+function voskGrammar() {
+  const words = new Set(['[unk]']);
+  const add = t => String(t).toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).forEach(w => { if (w) words.add(w); });
+  const n = S.wakeWord.toLowerCase();
+  const dbl = x => x.replace(/([bcdfgklmnprst])(ie|y|i|e|ey)$/, '$1$1$2');
+  [n, n.replace(/ie$/, 'y'), n.replace(/y$/, 'ie'), n.replace(/ie$/, 'ey'), dbl(n), dbl(n.replace(/ie$/, 'y')), dbl(n.replace(/y$/, 'ie'))].forEach(add);
+  S.shortcuts.forEach(r => add(r.say));
+  poseNames.forEach(add);
+  ['zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred and then',
+   'move turn set go to the a bit little lot up down left right plus minus by degrees',
+   'base shoulder elbow wrist roll gripper hand claw open close home relax stop halt wait cancel freeze',
+   'hello hi hey thanks thank you good morning evening night bye goodbye sleep who are what is your name',
+   'can could would you please now me it and'].forEach(add);
+  S.shortcuts.forEach(r => words.add(r.say.toLowerCase()));         // whole phrases too
+  return JSON.stringify([...words]);
+}
+
+async function voskStart() {
+  if (micActive || voskLoading) return;
+  try {
+    const model = await loadVoskModel();
+    if (!listening) return;
+    voskStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }, video: false });
+    voskCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const grammar = S.ai ? undefined : voskGrammar();                 // AI mode = free speech; otherwise our vocabulary
+    voskRec = new model.KaldiRecognizer(voskCtx.sampleRate, grammar);
+    voskRec.on('partialresult', m => { const t = (m.result && m.result.partial || '').trim(); if (t && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
+    voskRec.on('result', m => {
+      const t = (m.result && m.result.text || '').replace(/\[unk\]/g, '').replace(/\s+/g, ' ').trim();
+      if (!t || speaking || running || Date.now() < ignoreUntil) return;
+      holdThenSpeak([{ text: t, conf: null }]);
+    });
+    const src = voskCtx.createMediaStreamSource(voskStream);
+    voskNode = voskCtx.createScriptProcessor(4096, 1, 1);
+    voskNode.onaudioprocess = e => { if (voskRec && !speaking && !running) { try { voskRec.acceptWaveform(e.inputBuffer); } catch (err) {} } };
+    src.connect(voskNode); voskNode.connect(voskCtx.destination);
+    micActive = true; updateEars(); logLine('[mic] open (on-device' + (grammar ? ', vocabulary mode' : ', free speech') + ')');
+    if (awake) setFace('listening'); else setFace('standby');
+    setDoing(awake ? 'Awake. What should I do?' : `Say "${S.wakeWord}" to wake me`);
+  } catch (e) {
+    logLine('[vosk] ' + e.message); setDoing('On-device listening failed: ' + e.message, true); showToast('Speech engine failed');
+  }
+}
+function voskStop() {
+  try { voskNode && voskNode.disconnect(); } catch (e) {}
+  try { voskRec && voskRec.remove(); } catch (e) {}
+  try { voskStream && voskStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { voskCtx && voskCtx.close(); } catch (e) {}
+  voskNode = voskRec = voskStream = voskCtx = null;
+  micActive = false; updateEars(); logLine('[mic] closed');
+}
 // The mic is never closed for speech or motion any more (closing it makes Chrome pop);
 // instead results are ignored while speaking/running and for a short guard afterwards.
 function micPause() { held = null; clearTimeout(holdTimer); updateEars(); }
@@ -701,13 +792,14 @@ function stripWake(text) {
 }
 
 function startListening() {
-  if (!rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
-  listening = true; rec.lang = S.lang; startRec();
+  if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
+  listening = true; if (rec) rec.lang = S.lang; startRec();
   power.textContent = 'Stop'; power.className = 'on'; gear.disabled = true; settings.classList.remove('open');
   setHeard(''); goStandby(true);
 }
 function stopListening() {
   listening = false; awake = false; clearTimeout(awakeTimer); try { rec && rec.stop(); } catch (e) {}
+  if (S.engine === 'vosk') voskStop();
   power.textContent = 'Start'; power.className = 'off'; gear.disabled = false;
   setFace('off'); setDoing('Stopped. Tap Start to listen again.');
 }
