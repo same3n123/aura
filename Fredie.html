@@ -74,8 +74,10 @@
   .smile { fill: none; stroke: var(--eye); stroke-width: 11; stroke-linecap: round; opacity: 0; transition: opacity .3s; }
 
   /* hair, extras */
-  .hair { fill: var(--hair); stroke: var(--hair); stroke-width: 2; stroke-linejoin: round; display: none; }
+  .hair { fill: var(--hair); stroke: var(--hair); stroke-width: 2; stroke-linejoin: round; display: none; transform: translateY(-22px); }
   .hair.on { display: block; }
+  .mustache { fill: var(--hair); display: none; } .mustache.on { display: block; }
+  .s-moving .mustache { opacity: 0; }
   .extra { display: none; } .extra.on { display: block; }
   .glasses { fill: none; stroke: var(--ink); stroke-width: 5; opacity: .85; }
   .antenna { fill: none; stroke: var(--eye); stroke-width: 6; stroke-linecap: round; }
@@ -97,11 +99,18 @@
 
   .s-standby .ring { fill: var(--eye-dim); }
   .s-standby .brow, .s-standby .mouth { stroke: var(--eye-dim); }
-  .s-standby .eye-g { transform: scaleY(.4); }
-  .s-standby .brow { transform: translateY(10px); opacity: .6; }
+  .s-standby .eye-g { transform: scaleY(.12); }
+  .s-standby .brow { transform: translateY(12px); opacity: .5; }
+  .s-standby .mouth { d: path("M 138 160 Q 150 154 162 160"); opacity: .7; }
   .s-standby .glow { filter: none; }
-  @media (prefers-reduced-motion: no-preference) { .s-standby .eye-g { animation: breathe 4s ease-in-out infinite; } }
+  .zzz { font: 700 22px "Sora", sans-serif; fill: var(--eye-dim); opacity: 0; }
+  @media (prefers-reduced-motion: no-preference) {
+    .s-standby .eye-g { animation: breathe 4s ease-in-out infinite; }
+    .s-standby .zzz { animation: zfloat 3.6s ease-in-out infinite; }
+    .s-standby .zzz.z2 { animation-delay: 1.2s; } .s-standby .zzz.z3 { animation-delay: 2.4s; }
+  }
   @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: .95; } }
+  @keyframes zfloat { 0% { opacity: 0; transform: translate(0, 0) scale(.7); } 25% { opacity: .9; } 100% { opacity: 0; transform: translate(24px, -46px) scale(1.25); } }
 
   @media (prefers-reduced-motion: no-preference) {
     .s-listening .eye-g { animation: blink 5.5s infinite; }
@@ -140,11 +149,10 @@
     background: rgba(255,255,255,.94); color: #10131C; padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
     transition: all .25s; pointer-events: none; z-index: 15; white-space: nowrap; }
   #toast.show { transform: translate(-50%, 0); opacity: 1; }
-  #console { display: none; padding: 0 14px 8px; }
-  #console.open { display: block; }
-  #heard { font-size: 15px; color: var(--muted); min-height: 1.3em; }
+  #console { display: block; padding: 0 14px 6px; text-align: center; }
+  #heard { font-size: 14px; color: var(--muted); min-height: 1.3em; }
   #heard.interim { opacity: .6; }
-  #doing { font-size: 13px; color: var(--muted); min-height: 1.3em; margin-top: 2px; }
+  #doing { font-size: 12.5px; color: var(--muted); opacity: .8; min-height: 1.3em; margin-top: 2px; }
   #doing.bad { color: var(--bad); }
 
 
@@ -261,6 +269,16 @@
     </div>
 
     <div class="section">
+      <h3>Joint directions</h3>
+      <p class="hint">Which way is "up", "left", "forward" on your arm? Pick + or − for each joint. "move shoulder up" then always means the right thing. When you name a joint but no amount, it moves 30°.</p>
+      <label>Base: "left" is<select id="dirB"><option value="+">+ (higher angle)</option><option value="-">− (lower angle)</option></select></label>
+      <label>Shoulder: "up" is<select id="dirS"><option value="-">− (lower angle)</option><option value="+">+ (higher angle)</option></select></label>
+      <label>Elbow: "forward / up" is<select id="dirE"><option value="+">+ (higher angle)</option><option value="-">− (lower angle)</option></select></label>
+      <label>Wrist: "up" is<select id="dirW"><option value="+">+ (higher angle)</option><option value="-">− (lower angle)</option></select></label>
+      <label>Roll: "right / clockwise" is<select id="dirR"><option value="+">+ (higher angle)</option><option value="-">− (lower angle)</option></select></label>
+    </div>
+
+    <div class="section">
       <h3>Timing</h3>
       <label>Seconds between commands inside one shortcut<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
       <label>Seconds between shortcuts said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
@@ -318,6 +336,9 @@
         <button data-c="#FF4D6D" style="background:#FF4D6D"></button><button data-c="#B78BFF" style="background:#B78BFF"></button>
         <button data-c="#5EEBFF" style="background:#5EEBFF"></button>
       </div>
+      <label>Mustache
+        <select id="mustache"><option value="none">None</option><option value="handlebar">Handlebar</option><option value="chevron">Chevron</option></select></label>
+      <p class="hint">Uses the hair colour.</p>
       <label>Extras
         <select id="extra"><option value="none">None</option><option value="glasses">Glasses</option><option value="antenna">Antenna</option><option value="bow">Bow</option></select></label>
       <label>Bow colour</label>
@@ -360,7 +381,8 @@ const shortcutRows = $('shortcutRows'), addRow = $('addRow');
 const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
-const eyeColor = $('eyeColor'), hair = $('hair'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
+const dirEls = { b: $('dirB'), s: $('dirS'), e: $('dirE'), w: $('dirW'), r: $('dirR') };
+const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
 
@@ -389,9 +411,11 @@ const S = {
   get accent() { return LS('accent', 'en-US'); },
   get theme() { return LS('theme', 'dark'); },
   get engine() { return LS('engine', 'vosk'); },
+  get dirs() { return { b: LS('dirB', '+'), s: LS('dirS', '-'), e: LS('dirE', '+'), w: LS('dirW', '+'), r: LS('dirR', '+'), g: '+' }; },
   get modelUrl() { return LS('modelUrl', 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz'); },
   get eyeColor() { return LS('eyeColor', '#5EEBFF'); },
   get hair() { return LS('hair', 'none'); },
+  get mustache() { return LS('mustache', 'none'); },
   get hairColor() { return LS('hairColor', '#FF8A3D'); },
   get extra() { return LS('extra', 'none'); },
   get bowColor() { return LS('bowColor', '#FF4D6D'); },
@@ -406,7 +430,8 @@ function loadSettingsUI() {
   renderShortcuts(S.shortcuts);
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
-  eyeColor.value = S.eyeColor; hair.value = S.hair; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
+  const d = S.dirs; for (const k in dirEls) dirEls[k].value = d[k];
+  eyeColor.value = S.eyeColor; hair.value = S.hair; mustache.value = S.mustache; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
   blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
   aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model; persona.value = S.persona;
   jointGuide.value = S.jointGuide;
@@ -419,7 +444,8 @@ function saveSettings() {
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
-    set('eyeColor', eyeColor.value); set('hair', hair.value); set('hairColor', hairColor.value); set('extra', extra.value);
+    for (const k in dirEls) set('dir' + k.toUpperCase(), dirEls[k].value);
+    set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
     set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
     set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
     set('jointGuide', jointGuide.value); set('persona', persona.value);
@@ -451,6 +477,9 @@ const FACE_SVG = `
     <path class="smile" d="M 164 108 Q 202 78 240 108"/>
     <path class="mouth" d="M 134 160 Q 150 166 166 160"/>
   </g>
+  <g class="mustache handlebar"><path d="M 150 140 C 140 128 122 128 112 136 C 104 142 98 140 96 134 C 100 148 118 150 130 144 C 138 141 146 140 150 142 C 154 140 162 141 170 144 C 182 150 200 148 204 134 C 202 140 196 142 188 136 C 178 128 160 128 150 140 Z"/></g>
+  <g class="mustache chevron"><path d="M 150 138 C 140 130 124 132 116 140 L 122 148 C 130 142 142 142 150 146 C 158 142 170 142 178 148 L 184 140 C 176 132 160 130 150 138 Z"/></g>
+  <text class="zzz z1" x="228" y="60">z</text><text class="zzz z2" x="240" y="48">z</text><text class="zzz z3" x="252" y="36">Z</text>
   <g class="extra glasses"><circle cx="98" cy="102" r="52" class="glasses"/><circle cx="202" cy="102" r="52" class="glasses"/><path class="glasses" d="M 150 100 L 150 104 M 46 100 L 30 92 M 254 100 L 270 92"/></g>
   <g class="extra antenna"><path class="antenna" d="M 150 34 L 150 4"/><circle class="antenna-ball" cx="150" cy="2" r="9"/></g>
   <g class="extra bow"><path class="bow" d="M 236 26 L 214 12 L 218 40 Z M 236 26 L 258 12 L 254 40 Z"/><circle class="bow" cx="236" cy="26" r="6"/></g>
@@ -472,11 +501,12 @@ function applyFace() {
   r.setProperty('--hair', S.hairColor);
   r.setProperty('--bow', S.bowColor);
   document.querySelectorAll('.hair').forEach(h => h.classList.toggle('on', h.classList.contains(S.hair)));
+  document.querySelectorAll('.mustache').forEach(m => m.classList.toggle('on', m.classList.contains(S.mustache)));
   document.querySelectorAll('.extra').forEach(x => x.classList.toggle('on', x.classList.contains(S.extra) || (S.blush && x.classList.contains('blushG'))));
   document.querySelectorAll('.brow').forEach(b => b.style.display = S.brows ? '' : 'none');
 }
 // live preview while fiddling (auto-save then applies)
-[eyeColor, hair, hairColor, extra, bowColor, blush, brows].forEach(el => el.addEventListener('input', () => { saveSettings(); applyFace(); }));
+[eyeColor, hair, mustache, hairColor, extra, bowColor, blush, brows].forEach(el => el.addEventListener('input', () => { saveSettings(); applyFace(); }));
 document.querySelectorAll('#eyePresets button').forEach(b => b.onclick = () => { eyeColor.value = b.dataset.c; saveSettings(); applyFace(); });
 document.querySelectorAll('#hairPresets button').forEach(b => b.onclick = () => { hairColor.value = b.dataset.c; saveSettings(); applyFace(); });
 
@@ -486,7 +516,7 @@ function applyTheme(t) {
 }
 theme.onchange = () => { applyTheme(theme.value); saveSettings(); applyFace(); };
 $('guideReset').onclick = () => { jointGuide.value = DEFAULT_GUIDE; saveSettings(); };
-kbBtn.onclick = () => { const open = !consoleBox.classList.contains('open'); consoleBox.classList.toggle('open', open); bottom.classList.toggle('open', open); if (open) typed.focus(); };
+kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
 function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do, r.reply || '')); }
@@ -791,9 +821,20 @@ function stripWake(text) {
   return null;
 }
 
+function beep(freq, ms, vol) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = freq || 880; g.gain.value = vol || 0.15;
+    o.connect(g); g.connect(ctx.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (ms || 160) / 1000);
+    setTimeout(() => { o.stop(); ctx.close(); }, (ms || 160) + 40);
+  } catch (e) {}
+}
 function startListening() {
   if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
   listening = true; if (rec) rec.lang = S.lang; startRec();
+  beep(880, 120); setTimeout(() => beep(1320, 160), 140);            // "I'm on"
   power.textContent = 'Stop'; power.className = 'on'; gear.disabled = true; settings.classList.remove('open');
   setHeard(''); goStandby(true);
 }
@@ -844,7 +885,12 @@ function say(text) {
 const RAW = /^(\?|help|list|home|open|close|relax|gscan|set open|set close|go [a-z0-9-]+|del [a-z0-9-]+|save [a-z0-9-]+|run( [a-z0-9-]+)+|speed [1-5]|grip \d+|hold (on|off)|[bsewrg] ?[+-]?\d+|pose( \d+){6})$/i;
 const JOINT_ALIASES = { b: ['base','bass','bays','basis'], s: ['shoulder','soldier','shoulders','solder'], e: ['elbow','elbows','l bow','albo'],
   w: ['wrist','wrists','rest','risk'], r: ['roll','role','rol','twist'], g: ['gripper','griper','claw','jaws','hand'] };
-const UP = /\b(up|plus|add|increase|more|forward|raise|higher|clockwise)\b/, DOWN = /\b(down|minus|reduce|decrease|less|back|lower|backward|anticlockwise|counter clockwise)\b/;
+// "positive" words are the natural direction (up / left / forward / clockwise); the Joint directions setting says whether that is + or − on this arm
+const POS = /\b(up|left|forward|out|extend|raise|higher|clockwise|right|open)\b/, NEG = /\b(down|back|in|fold|lower|backward|anticlockwise|counter clockwise|counterclockwise|close)\b/;
+const PLUS = /\b(plus|add|increase|more)\b/, MINUS = /\b(minus|reduce|decrease|less)\b/;
+// which "natural" word means the positive direction for each joint
+const NATURAL = { b: /\bleft\b/, s: /\b(up|raise|higher)\b/, e: /\b(forward|up|out|extend|raise)\b/, w: /\b(up|raise|higher)\b/, r: /\b(right|clockwise)\b/, g: /\bopen\b/ };
+const OPPOSITE = { b: /\bright\b/, s: /\b(down|lower)\b/, e: /\b(back|down|in|fold)\b/, w: /\b(down|lower)\b/, r: /\b(left|anticlockwise|counter clockwise|counterclockwise)\b/, g: /\bclose\b/ };
 const WORDNUM = { zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,
   sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90,hundred:100 };
 function wordsToDigits(t) {
@@ -867,11 +913,16 @@ function parseJointMove(t) {
   outer: for (const [k, words] of Object.entries(JOINT_ALIASES)) for (const w of words) {
     const re = new RegExp('\\b' + w + '\\b'); if (re.test(t)) { joint = k; t = t.replace(re, ' '); break outer; } }
   if (!joint) return null;
-  const num = t.match(/(-?\d+)/); if (!num) return { error: true };
-  const n = Math.abs(parseInt(num[1], 10));
-  if (DOWN.test(t) || num[1].startsWith('-')) return `${joint} -${n}`;
-  if (UP.test(t)) return `${joint} +${n}`;
-  return `${joint} ${n}`;
+  const num = t.match(/(-?\d+)/);
+  const n = num ? Math.abs(parseInt(num[1], 10)) : 30;                     // no amount said = 30 degrees
+  const sign = S.dirs[joint] === '-' ? -1 : 1;                              // what "natural" means on this arm
+  if (num && num[1].startsWith('-')) return `${joint} -${n}`;
+  if (MINUS.test(t)) return `${joint} -${n}`;
+  if (PLUS.test(t))  return `${joint} +${n}`;
+  if (NATURAL[joint].test(t))  return `${joint} ${sign > 0 ? '+' : '-'}${n}`;
+  if (OPPOSITE[joint].test(t)) return `${joint} ${sign > 0 ? '-' : '+'}${n}`;
+  if (!num) return `${joint} ${sign > 0 ? '+' : '-'}${n}`;                 // "move shoulder" = natural direction, 30
+  return `${joint} ${n}`;                                                   // absolute angle
 }
 function editDistance(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -900,7 +951,7 @@ function resolveDirect(part) {
   let t = part.trim().replace(/[.!?,]+$/, '').replace(/\s+/g, ' ').toLowerCase().replace(/\b(\w+)( \1\b)+/g, '$1');
   if (!t) return null;
   const pm = matchPose(t); if (pm) return 'go ' + pm;
-  const jm = parseJointMove(t); if (jm && jm.error) return { error: t }; if (jm) return jm;
+  const jm = parseJointMove(t); if (jm) return jm;
   return RAW.test(t) ? t : null;
 }
 // one piece -> a GROUP of commands (a shortcut expands to several), or null
@@ -976,7 +1027,7 @@ async function handleInput(raw, typedIn, conf) {
       if (justWoke) { setFace('happy', 1500); say(`I am ${S.wakeWord} and I am ready to rock and roll!`); }
     } else if (!awake) {
       logLine('[ignored] not awake and no "' + S.wakeWord + '" heard');
-      if (understood(whole)) showToast(`Say "${S.wakeWord}" first`);   // it was a real command, so tell them
+      if (understood(whole)) { setDoing(`Say "${S.wakeWord}" first to wake me up`); setHeard(whole + ' ?', true); }
       return;                                          // not talking to us
     } else {
       touchAwake();
