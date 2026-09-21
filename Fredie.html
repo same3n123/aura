@@ -178,6 +178,20 @@
   #jointWords th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
   #jointWords td { padding: 3px 2px; font-size: 13px; color: var(--muted); }
   #jointWords input { margin: 0; padding: 9px; font-size: 13px; }
+  .task { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 10px; }
+  .task .head { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+  .task .head input { margin: 0; }
+  .task .head label { margin: 0; }
+  .task .x { background: transparent; color: var(--muted); font-size: 20px; padding: 8px 10px; }
+  .steps { margin-top: 10px; }
+  .step { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .step .n { width: 22px; font-size: 12px; color: var(--muted); text-align: right; }
+  .step select, .step input { margin: 0; padding: 9px; font-size: 14px; flex: 1; min-width: 0; }
+  .step input.num { flex: 0 0 68px; }
+  .step .x { padding: 6px 8px; font-size: 18px; }
+  .addSteps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .addSteps button { font-size: 13px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); }
+  .addSteps button.cur { border-color: var(--act); color: var(--act); }
   #shortcuts { width: 100%; border-collapse: collapse; margin-top: 6px; }
   #shortcuts th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
   #shortcuts td { padding: 3px 2px; }
@@ -263,13 +277,21 @@
     </div>
 
     <div class="section">
-      <h3>Shortcuts</h3>
+      <h3>Tasks</h3>
+      <p class="hint">A task is something you say and a list of steps it does. Build steps with the buttons - no codes needed. Say two task names in one sentence to run them one after the other.</p>
+      <div id="tasks"></div>
+      <div class="row2" style="margin-top:10px"><button id="addTask" class="act">+ New task</button></div>
+    </div>
+
+    <div class="section">
+      <details><summary style="color:var(--muted)">Advanced: text shortcuts</summary>
       <p class="hint">What you say, what it does, and (optionally) what it says when finished. Several commands: comma-separated, one second apart. Say two shortcuts in one sentence and they run one after the other; the reply spoken is the last one's.</p>
       <table id="shortcuts">
         <thead><tr><th style="width:30%">You say</th><th style="width:34%">It does</th><th>It replies (optional)</th><th></th></tr></thead>
         <tbody id="shortcutRows"></tbody>
       </table>
       <button id="addRow" style="margin-top:8px">+ Add row</button>
+      </details>
     </div>
 
     <div class="section">
@@ -393,6 +415,7 @@ const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk =
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
+const tasksBox = $('tasks'), addTaskBtn = $('addTask');
 const DEFAULT_JOINT_WORDS = {
   b: { '+': 'left, anticlockwise',            '-': 'right, clockwise' },
   s: { '+': 'down, lower',                    '-': 'up, raise, higher' },
@@ -443,6 +466,7 @@ const S = {
   get minConf() { const v = parseFloat(LS('minConf', '0.6')); return isNaN(v) ? 0.6 : v; },
   get askUnknown() { return LS('askUnknown', '1') === '1'; },
   get shortcuts() { try { return JSON.parse(LS('shortcuts', '[]')); } catch (e) { return []; } },
+  get tasks() { try { return JSON.parse(LS('tasks', '[]')); } catch (e) { return []; } },
 };
 function loadSettingsUI() {
   stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0';
@@ -538,6 +562,100 @@ $('guideReset').onclick = () => { jointGuide.value = DEFAULT_GUIDE; saveSettings
 $('jointReset').onclick = () => { jointInputs.forEach(i => i.value = DEFAULT_JOINT_WORDS[i.dataset.j][i.dataset.d]); saveSettings(); };
 kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
+// ---------- Tasks builder ----------
+const JOINT_NAMES = { b: 'Base', s: 'Shoulder', e: 'Elbow', w: 'Wrist', r: 'Roll', g: 'Gripper' };
+let tasks = [];
+function loadTasks() { tasks = S.tasks; renderTasks(); }
+function saveTasks() { try { localStorage.setItem('aura.tasks', JSON.stringify(tasks)); } catch (e) {} }
+function renderTasks() {
+  tasksBox.innerHTML = '';
+  if (!tasks.length) { tasksBox.innerHTML = '<p class="hint">No tasks yet. Tap "+ New task".</p>'; return; }
+  tasks.forEach((t, ti) => tasksBox.appendChild(renderTask(t, ti)));
+}
+function dirOptions(j) {
+  const jw = S.jointWords[j] || {}; const p = wordList(jw['+'])[0] || 'plus', m = wordList(jw['-'])[0] || 'minus';
+  return `<option value="+">${p} (+)</option><option value="-">${m} (−)</option><option value="=">to exactly</option>`;
+}
+function renderTask(t, ti) {
+  const card = document.createElement('div'); card.className = 'task';
+  card.innerHTML = `
+    <div class="head">
+      <label>You say<input type="text" class="tsay" placeholder="e.g. tidy up" autocapitalize="none"></label>
+      <label>It replies (optional)<input type="text" class="treply" placeholder="All tidy!"></label>
+      <button class="x" title="delete task">×</button>
+    </div>
+    <div class="steps"></div>
+    <div class="addSteps">
+      <button data-add="joint">+ Move a joint</button><button data-add="pose">+ Go to pose</button><button data-add="grip">+ Gripper</button>
+      <button data-add="wait">+ Wait</button><button data-add="say">+ Say</button><button data-add="task">+ Run another task</button>
+      <button data-add="cur" class="cur">+ Current position</button>
+    </div>`;
+  card.querySelector('.tsay').value = t.say || ''; card.querySelector('.treply').value = t.reply || '';
+  card.querySelector('.tsay').oninput = e => { t.say = e.target.value.trim().toLowerCase(); saveTasks(); };
+  card.querySelector('.treply').oninput = e => { t.reply = e.target.value.trim(); saveTasks(); };
+  card.querySelector('.head .x').onclick = () => { if (confirm('Delete task "' + (t.say || 'untitled') + '"?')) { tasks.splice(ti, 1); saveTasks(); renderTasks(); } };
+  const stepsEl = card.querySelector('.steps');
+  (t.steps || []).forEach((st, si) => stepsEl.appendChild(renderStep(t, st, si)));
+  card.querySelectorAll('.addSteps button').forEach(b => b.onclick = async () => {
+    t.steps = t.steps || [];
+    const kind = b.dataset.add;
+    if (kind === 'cur') {
+      if (!rxChar) { showToast('Connect to the arm first'); return; }
+      b.textContent = 'reading…'; await readAngles(); b.textContent = '+ Current position';
+      if (!Object.keys(angles).length) { showToast('Could not read the arm'); return; }
+      t.steps.push({ type: 'abs', a: { ...angles } });
+    }
+    else if (kind === 'joint') t.steps.push({ type: 'joint', j: 'b', d: '+', n: 30 });
+    else if (kind === 'pose') t.steps.push({ type: 'pose', name: poseNames[0] || 'home' });
+    else if (kind === 'grip') t.steps.push({ type: 'grip', v: 'open' });
+    else if (kind === 'wait') t.steps.push({ type: 'wait', s: 2 });
+    else if (kind === 'say') t.steps.push({ type: 'say', text: '' });
+    else if (kind === 'task') t.steps.push({ type: 'task', name: '' });
+    saveTasks(); renderTasks();
+  });
+  return card;
+}
+function renderStep(t, st, si) {
+  const row = document.createElement('div'); row.className = 'step';
+  const n = `<span class="n">${si + 1}.</span>`;
+  const poseOpts = (poseNames.length ? poseNames : ['home']).map(p => `<option value="${p}">${p}</option>`).join('');
+  const taskOpts = tasks.filter(x => x !== t && x.say).map(x => `<option value="${x.say}">${x.say}</option>`).join('');
+  const jointOpts = Object.entries(JOINT_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+  if (st.type === 'joint') row.innerHTML = n + `<select class="j">${jointOpts}</select><select class="d">${dirOptions(st.j)}</select><input class="num" type="number" min="0" max="180" value="${st.n}"><span class="n">°</span>`;
+  else if (st.type === 'pose') row.innerHTML = n + `<span class="n" style="width:auto">go to</span><select class="p">${poseOpts}</select>`;
+  else if (st.type === 'grip') row.innerHTML = n + `<span class="n" style="width:auto">gripper</span><select class="g"><option value="open">open</option><option value="close">close</option></select>`;
+  else if (st.type === 'wait') row.innerHTML = n + `<span class="n" style="width:auto">wait</span><input class="num" type="number" min="0" step="0.5" value="${st.s}"><span class="n" style="width:auto">seconds</span>`;
+  else if (st.type === 'say') row.innerHTML = n + `<span class="n" style="width:auto">say</span><input class="t" type="text" placeholder="something to say" value="${(st.text || '').replace(/"/g, '&quot;')}">`;
+  else if (st.type === 'task') row.innerHTML = n + `<span class="n" style="width:auto">run task</span><select class="tk"><option value="">choose…</option>${taskOpts}</select>`;
+  else if (st.type === 'abs') row.innerHTML = n + `<span class="n" style="width:auto;flex:1;text-align:left">position: ${Object.entries(st.a).map(([k, v]) => k + ' ' + v).join(', ')}</span>`;
+  row.innerHTML += `<button class="x" title="remove step">×</button>`;
+  const q = c => row.querySelector(c);
+  if (st.type === 'joint') { q('.j').value = st.j; q('.d').value = st.d; q('.j').onchange = e => { st.j = e.target.value; q('.d').innerHTML = dirOptions(st.j); q('.d').value = st.d; saveTasks(); }; q('.d').onchange = e => { st.d = e.target.value; saveTasks(); }; q('.num').oninput = e => { st.n = Math.max(0, Math.min(180, parseInt(e.target.value, 10) || 0)); saveTasks(); }; }
+  if (st.type === 'pose') { q('.p').value = st.name; q('.p').onchange = e => { st.name = e.target.value; saveTasks(); }; }
+  if (st.type === 'grip') { q('.g').value = st.v; q('.g').onchange = e => { st.v = e.target.value; saveTasks(); }; }
+  if (st.type === 'wait') { q('.num').oninput = e => { st.s = parseFloat(e.target.value) || 0; saveTasks(); }; }
+  if (st.type === 'say') { q('.t').oninput = e => { st.text = e.target.value; saveTasks(); }; }
+  if (st.type === 'task') { q('.tk').value = st.name || ''; q('.tk').onchange = e => { st.name = e.target.value; saveTasks(); }; }
+  q('.x').onclick = () => { t.steps.splice(si, 1); saveTasks(); renderTasks(); };
+  return row;
+}
+addTaskBtn.onclick = () => { tasks.push({ say: '', reply: '', steps: [] }); saveTasks(); renderTasks(); tasksBox.lastChild.querySelector('.tsay').focus(); };
+
+// Turn a task into commands. "wait:2000" and "say:text" are handled by the runner, not the arm.
+function compileTask(t, depth = 0) {
+  const out = [];
+  for (const st of t.steps || []) {
+    if (st.type === 'joint') out.push(st.d === '=' ? `${st.j} ${st.n}` : `${st.j} ${st.d}${st.n}`);
+    else if (st.type === 'pose') out.push('go ' + st.name);
+    else if (st.type === 'grip') out.push(st.v);
+    else if (st.type === 'wait') out.push('wait:' + Math.round((st.s || 0) * 1000));
+    else if (st.type === 'say' && st.text) out.push('say:' + st.text);
+    else if (st.type === 'abs') out.push('pose ' + ['b', 's', 'e', 'w', 'r', 'g'].map(k => st.a[k] !== undefined ? st.a[k] : 90).join(' '));
+    else if (st.type === 'task' && depth < 4) { const sub = tasks.find(x => x.say === st.name); if (sub) out.push(...compileTask(sub, depth + 1)); }
+  }
+  return out;
+}
+
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
 function renderShortcuts(rows) { shortcutRows.innerHTML = ''; (rows.length ? rows : [{ say: '', do: '' }]).forEach(r => addShortcutRow(r.say, r.do, r.reply || '')); }
 function addShortcutRow(say = '', does = '', reply = '') {
@@ -553,7 +671,7 @@ function addShortcutRow(say = '', does = '', reply = '') {
 function readShortcuts() {
   return [...shortcutRows.querySelectorAll('tr')].map(tr => ({ say: tr.querySelector('.say').value.trim().toLowerCase(), do: tr.querySelector('.do').value.trim(), reply: tr.querySelector('.reply').value.trim() })).filter(r => r.say && r.do);
 }
-try { loadSettingsUI(); } catch (e) {}
+try { loadSettingsUI(); loadTasks(); } catch (e) {}
 saveBtn.onclick = saveSettings;
 settings.querySelector('.body').addEventListener('change', e => { if (e.target.matches('input, select, textarea')) saveSettings(); });
 addRow.onclick = () => { addShortcutRow(); shortcutRows.lastChild.querySelector('.say').focus(); };
@@ -635,6 +753,7 @@ async function readAngles() {
 async function loadPoses() {
   poseNames = []; collecting = true; await send('list'); await sleep(1800); collecting = false;
   note(poses, poseNames.length ? 'Saved poses: ' + poseNames.join(', ') : 'No saved poses on the arm yet.', poseNames.length ? 'ok' : '');
+  renderTasks();
 }
 reloadBtn.onclick = () => rxChar ? loadPoses() : note(poses, 'Connect first.', 'bad');
 
@@ -727,7 +846,23 @@ setInterval(() => { if (listening && !micActive) startRec(); }, 3000);   // hear
 // ============================================================
 //  On-device recognition (Vosk): no beeps, offline, knows our vocabulary
 // ============================================================
-let voskModel = null, voskRec = null, voskCtx = null, voskStream = null, voskNode = null, voskLoading = false;
+let voskModel = null, voskRec = null, voskFree = null, voskCtx = null, voskStream = null, voskNode = null, voskLoading = false;
+// In AI mode two recognisers hear the same audio: vocabulary (accurate for commands) and free speech (for chat).
+let pendG = null, pendF = null, decideTimer = null;
+function decideUtterance() {
+  clearTimeout(decideTimer); decideTimer = null;
+  const g = pendG, f = pendF; pendG = pendF = null;
+  if (g && understood(g)) { logLine('[vosk] vocabulary: "' + g + '"'); holdThenSpeak([{ text: g, conf: null }]); return; }
+  if (f) { logLine('[vosk] free speech: "' + f + '"' + (g ? '  (vocab heard "' + g + '")' : '')); holdThenSpeak([{ text: f, conf: null }]); return; }
+  if (g) { logLine('[vosk] vocabulary only: "' + g + '"'); holdThenSpeak([{ text: g, conf: null }]); }
+}
+function gotResult(which, t) {
+  if (!t || speaking || running || Date.now() < ignoreUntil) return;
+  if (which === 'g') pendG = t; else pendF = t;
+  if (!voskFree) { decideUtterance(); return; }                  // single recogniser: act now
+  if (pendG && pendF) decideUtterance();                         // both spoke: decide now
+  else if (!decideTimer) decideTimer = setTimeout(decideUtterance, 700);   // give the other one a moment
+}
 
 async function loadVoskModel() {
   if (voskModel) return voskModel;
@@ -765,6 +900,7 @@ function voskGrammar() {
    'hello hi hey thanks thank you good morning evening night bye goodbye sleep who are what is your name',
    'can could would you please now me it and'].forEach(add);
   S.shortcuts.forEach(r => words.add(r.say.toLowerCase()));         // whole phrases too
+  tasks.forEach(t => { if (t.say) { add(t.say); words.add(t.say.toLowerCase()); } });
   return JSON.stringify([...words]);
 }
 
@@ -775,19 +911,20 @@ async function voskStart() {
     if (!listening) return;
     voskStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }, video: false });
     voskCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const grammar = S.ai ? undefined : voskGrammar();                 // AI mode = free speech; otherwise our vocabulary
-    voskRec = new model.KaldiRecognizer(voskCtx.sampleRate, grammar);
-    voskRec.on('partialresult', m => { const t = (m.result && m.result.partial || '').trim(); if (t && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
-    voskRec.on('result', m => {
-      const t = (m.result && m.result.text || '').replace(/\[unk\]/g, '').replace(/\s+/g, ' ').trim();
-      if (!t || speaking || running || Date.now() < ignoreUntil) return;
-      holdThenSpeak([{ text: t, conf: null }]);
-    });
+    const clean = m => ((m.result && (m.result.text !== undefined ? m.result.text : m.result.partial)) || '').replace(/\[unk\]/g, '').replace(/\s+/g, ' ').trim();
+    voskRec = new model.KaldiRecognizer(voskCtx.sampleRate, voskGrammar());          // always: our vocabulary
+    voskRec.on('partialresult', m => { const t = clean(m); if (t && !voskFree && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
+    voskRec.on('result', m => gotResult('g', clean(m)));
+    if (S.ai) {                                                                          // AI mode adds free speech alongside
+      voskFree = new model.KaldiRecognizer(voskCtx.sampleRate);
+      voskFree.on('partialresult', m => { const t = clean(m); if (t && !speaking && !running) { setHeard(t, true); setFace('hearing'); } });
+      voskFree.on('result', m => gotResult('f', clean(m)));
+    }
     const src = voskCtx.createMediaStreamSource(voskStream);
     voskNode = voskCtx.createScriptProcessor(4096, 1, 1);
-    voskNode.onaudioprocess = e => { if (voskRec && !speaking && !running) { try { voskRec.acceptWaveform(e.inputBuffer); } catch (err) {} } };
+    voskNode.onaudioprocess = e => { if (!speaking && !running) { try { voskRec && voskRec.acceptWaveform(e.inputBuffer); voskFree && voskFree.acceptWaveform(e.inputBuffer); } catch (err) {} } };
     src.connect(voskNode); voskNode.connect(voskCtx.destination);
-    micActive = true; updateEars(); logLine('[mic] open (on-device' + (grammar ? ', vocabulary mode' : ', free speech') + ')');
+    micActive = true; updateEars(); logLine('[mic] open (on-device' + (voskFree ? ', vocabulary + free speech' : ', vocabulary') + ')');
     if (awake) setFace('listening'); else setFace('standby');
     setDoing(awake ? 'Awake. What should I do?' : `Say "${S.wakeWord}" to wake me`);
   } catch (e) {
@@ -797,6 +934,8 @@ async function voskStart() {
 function voskStop() {
   try { voskNode && voskNode.disconnect(); } catch (e) {}
   try { voskRec && voskRec.remove(); } catch (e) {}
+  try { voskFree && voskFree.remove(); } catch (e) {}
+  voskFree = null; pendG = pendF = null; clearTimeout(decideTimer);
   try { voskStream && voskStream.getTracks().forEach(t => t.stop()); } catch (e) {}
   try { voskCtx && voskCtx.close(); } catch (e) {}
   voskNode = voskRec = voskStream = voskCtx = null;
@@ -988,8 +1127,15 @@ function findEmbedded(part) {
   }
   return null;
 }
+function matchTask(t) { return fuzzyPick(t, tasks.filter(x => x.say && (x.steps || []).length), x => x.say); }
 function resolveGroup(part) {
   part = part.trim().replace(POLITE, '').replace(/\s+(?:for me|now|please)\s*$/, '').trim();
+  let tk = matchTask(part);
+  if (!tk && part.split(/\s+/).length >= 2 && !parseJointMove(part)) {
+    const words = part.split(/\s+/);
+    outer: for (let len = Math.min(words.length, 6); len >= 1; len--) for (let i = 0; i + len <= words.length; i++) { const m = matchTask(words.slice(i, i + len).join(' ')); if (m) { tk = m; break outer; } }
+  }
+  if (tk) { const cmds = compileTask(tk); cmds.reply = tk.reply || ''; return cmds; }
   let sc = matchShortcut(part);
   let embeddedPose = null;
   if (!sc && part.split(/\s+/).length >= 2 && !parseJointMove(part)) {
@@ -1016,7 +1162,10 @@ async function runGroups(groups) {
   try {
     for (let g = 0; g < groups.length && running; g++) {
       for (let i = 0; i < groups[g].length && running; i++) {
-        await send(groups[g][i]);
+        const c = groups[g][i];
+        if (c.startsWith('wait:')) { setDoing('Waiting…'); await sleep(parseInt(c.slice(5), 10) || 0); continue; }
+        if (c.startsWith('say:'))  { say(c.slice(4)); await sleep(1200); continue; }
+        await send(c);
         setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  ') + (i < groups[g].length - 1 ? '' : ''));
         if (i < groups[g].length - 1) await sleep(S.stepGap * 1000);
       }
@@ -1099,7 +1248,7 @@ async function claude(system, user) {
 }
 function aiSystem() {
   const cur = Object.keys(angles).length ? Object.entries(angles).map(([k, v]) => k + ' ' + v).join(', ') : 'unknown';
-  const sc = S.shortcuts.map(r => `  "${r.say}"  ->  ${r.do}`).join('\n');
+  const sc = [...tasks.filter(t => t.say).map(t => `  "${t.say}"  ->  ${compileTask(t).join(', ')}`), ...S.shortcuts.map(r => `  "${r.say}"  ->  ${r.do}`)].join('\n');
   return `You are ${S.wakeWord}, a small six-servo desk robot arm with a big personality: playful, witty, warm, a little cheeky. Keep every spoken line to one short sentence (under 15 words). Never sound like a manual.
 ${S.persona.trim() ? 'Owner says about your personality: ' + S.persona.trim() + '\n' : ''}
 HOW YOU MOVE
