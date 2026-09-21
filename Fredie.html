@@ -12,6 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <style>
   :root {
     --bg: #070B14; --bg2: #0F1626; --panel: #141C2E; --line: #24304A;
@@ -29,6 +31,7 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
     font-family: "Sora", ui-rounded, system-ui, -apple-system, sans-serif; overflow: hidden; }
   body { display: flex; flex-direction: column; }
+  body > .mode { flex: 1; }
   button { font: inherit; border: 0; border-radius: 14px; background: var(--panel); color: var(--ink); padding: 12px 16px;
     touch-action: manipulation; cursor: pointer; }
   button:disabled { opacity: .4; cursor: default; }
@@ -40,22 +43,59 @@
   label { display: block; font-size: 13px; color: var(--muted); margin-top: 14px; }
   .hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; line-height: 1.4; }
 
+  /* ---------- home + modes ---------- */
+  .mode { display: none; flex-direction: column; height: 100%; min-height: 0; }
+  .mode.show { display: flex; }
+  #homeScreen { padding: calc(18px + var(--sat)) 18px calc(18px + var(--sab)); justify-content: center; gap: 14px; }
+  #homeScreen h1 { font-size: 26px; letter-spacing: .1em; margin: 0 0 4px; text-align: center; }
+  #homeScreen .sub { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .tile { flex: 0 0 auto; min-height: 150px; border-radius: 22px; background: var(--panel); border: 1px solid var(--line); padding: 20px; text-align: left;
+    display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+  .tile b { font-size: 22px; } .tile span { color: var(--muted); font-size: 14px; }
+  .tile svg { width: 34px; height: 34px; margin-bottom: auto; stroke: var(--eye); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tile:active { border-color: var(--act); }
+  #homeConn { margin-top: 10px; }
+  .back { padding: 8px 10px; color: var(--muted); font-size: 22px; line-height: 1; }
+
+  /* 3D mode */
+  #three { flex: 1; min-height: 0; position: relative; }
+  #three canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #threeHint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; letter-spacing: .1em; text-transform: uppercase; }
+  #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); }
+  #jointChips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+  #jointChips button { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  #jointChips button.on { border-color: var(--eye); color: var(--eye); }
+  .sliderRow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .sliderRow button { padding: 12px 14px; font-weight: 600; }
+  .sliderRow input[type=range] { flex: 1; margin: 0; padding: 0; height: 40px; -webkit-appearance: none; background: transparent; }
+  .sliderRow input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--line); }
+  .sliderRow input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--eye); margin-top: -11px; border: 3px solid var(--bg); }
+  #jointVal { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .threeBtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .threeBtns button { padding: 13px 8px; font-size: 14px; }
+  #threeStatus { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 1.3em; }
+  #mirrorRow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); align-items: center; }
+  #mirrorRow label { margin: 0; display: flex; align-items: center; gap: 3px; font-size: 12px; }
+  #mirrorRow input { width: auto; margin: 0; }
+  .dirty #applyBtn { background: var(--act); color: #1A0D00; }
+
   /* ---------- top bar ---------- */
-  #bar { display: flex; align-items: center; gap: 10px; padding: calc(10px + var(--sat)) 14px 10px; background: var(--bg); }
-  #bar h1 { font-size: 18px; margin: 0; letter-spacing: .08em; font-weight: 700; }
-  #pill { font-size: 12px; padding: 5px 10px; border-radius: 999px; background: var(--panel); color: var(--muted); }
-  #pill.on { background: rgba(78,212,162,.15); color: var(--ok); }
+  #bar { display: flex; align-items: center; gap: 8px; padding: calc(10px + var(--sat)) 14px 10px; background: var(--bg); }
+  #bar h1 { font-size: 17px; margin: 0; letter-spacing: .08em; font-weight: 700; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; }
+  #pill, .pill { font-size: 11px; padding: 4px 9px; border-radius: 999px; background: var(--panel); color: var(--muted); white-space: nowrap; }
+  #pill.on, .pill.on { background: rgba(78,212,162,.15); color: var(--ok); }
   #bar .spacer { flex: 1; }
   #gear { padding: 10px; border-radius: 12px; }
-  #power { padding: 10px 18px; font-weight: 600; min-width: 84px; }
+  #power { padding: 10px 16px; font-weight: 600; min-width: 74px; }
   #power.on { background: var(--bad); color: #fff; }
   #power.off { background: var(--ok); color: #05261A; }
 
   /* ---------- face ---------- */
   #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 20px; min-height: 0; }
-  #ears { display: none; align-items: center; gap: 14px; margin-bottom: 6px; color: var(--ink); font-size: 14px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+  #ears { display: none; align-items: center; justify-content: center; gap: 12px; margin: 0 0 4px; color: var(--ink); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; opacity: .85; min-height: 30px; }
   #ears.show { display: flex; }
-  #ears svg { width: 28px; height: 34px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #console { min-height: 74px; }
+  #ears svg { width: 22px; height: 27px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   @media (prefers-reduced-motion: no-preference) { #ears.show svg { animation: wiggle 2.4s ease-in-out infinite; } #ears.show svg.r { animation-name: wiggle-r; animation-delay: 1.2s; } }
   @keyframes wiggle { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } }
   @keyframes wiggle-r { 0%, 100% { transform: scaleX(-1) rotate(0); } 50% { transform: scaleX(-1) rotate(-8deg); } }
@@ -222,8 +262,54 @@
 </head>
 <body>
 
+<!-- ================= HOME ================= -->
+<div id="homeScreen" class="mode show">
+  <h1>FREDIE</h1>
+  <div class="sub">Your robotic arm. Pick how you want to drive it.</div>
+  <button class="tile" id="goChat">
+    <svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>
+    <b>Chat mode</b><span>Talk to it. Wake it by name, give it tasks, let it answer back.</span>
+  </button>
+  <button class="tile" id="go3d">
+    <svg viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+    <b>3D mode</b><span>See the arm, move it with your finger, then send the pose.</span>
+  </button>
+  <div class="row2" id="homeConn"><button id="homeConnect">Connect to AURA-ARM</button><button id="homeSettings">Settings</button></div>
+  <div class="note" id="homeNote" style="text-align:center"></div>
+</div>
+
+<!-- ================= 3D MODE ================= -->
+<div id="threeMode" class="mode">
+  <div id="bar">
+    <button class="back ghost" id="back3d" aria-label="Home">‹</button>
+    <h1>3D <small style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">mode</small></h1>
+    <span id="pill3d" class="pill">not connected</span>
+    <span class="spacer"></span>
+  </div>
+  <div id="three"><div id="threeHint">drag to orbit · pinch to zoom · tap a part</div></div>
+  <div id="threePanel">
+    <div id="jointChips"></div>
+    <div class="sliderRow">
+      <button id="nudgeDown">−5</button>
+      <input id="jointSlider" type="range" min="0" max="180" value="90">
+      <button id="nudgeUp">+5</button>
+      <span id="jointVal">90°</span>
+    </div>
+    <div class="threeBtns">
+      <button id="readBtn">Read from arm</button>
+      <button id="homePoseBtn">Home</button>
+      <button id="applyBtn" class="act">Send to arm</button>
+    </div>
+    <div id="threeStatus">Connect, then Read from arm.</div>
+    <div id="mirrorRow"><span>Mirror:</span></div>
+  </div>
+</div>
+
+<!-- ================= CHAT MODE ================= -->
+<div id="chatMode" class="mode">
 <div id="bar">
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v3.4</small></h1>
+  <button class="back ghost" id="backChat" aria-label="Home">‹</button>
+  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.0</small></h1>
   <span id="pill">not connected</span>
   <span class="spacer"></span>
   <button id="tapBtn" class="ghost" aria-label="Tap mode">
@@ -237,11 +323,6 @@
 
 <div id="toast"></div>
 <div id="stage">
-  <div id="ears" aria-hidden="true">
-    <svg viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
-    <span>listening</span>
-    <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
-  </div>
   <div id="level"><i></i></div>
   <div id="face" class="s-off">
     <div class="faceSvg"></div>
@@ -254,6 +335,11 @@
 </div>
 
 <div id="console">
+  <div id="ears" aria-hidden="true">
+    <svg viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
+    <span>listening</span>
+    <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
+  </div>
   <div id="heard"></div>
   <div id="doing">Tap Start to begin listening</div>
 </div>
@@ -266,6 +352,8 @@
   </button>
   <button id="logBtn" class="ghost" aria-label="Log">≡</button>
 </div>
+
+</div><!-- /chatMode -->
 
 <!-- ---------- settings sheet ---------- -->
 <div id="settings" class="sheet">
@@ -342,7 +430,8 @@
     <div class="section">
       <h3>Timing</h3>
       <label>Seconds between commands inside one shortcut<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
-      <label>Seconds between shortcuts said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
+      <label>Seconds between tasks said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
+      <label>Pause after each thing you say, before it listens again<input id="listenGap" type="text" value="1.5" inputmode="decimal"></label>
     </div>
 
     <div class="section">
@@ -456,9 +545,10 @@ const pill = $('pill'), gear = $('gear'), power = $('power'), face = $('face'), 
 const typed = $('typed'), askBtn = $('askBtn'), logBtn = $('logBtn'), log = $('log');
 const settings = $('settings'), closeSettings = $('closeSettings'), logSheet = $('logSheet'), closeLog = $('closeLog');
 const tapBtn = $('tapBtn'), tapSheet = $('tapSheet'), closeTap = $('closeTap'), tapGrid = $('tapGrid');
+const homeScreen = $('homeScreen'), chatMode = $('chatMode'), threeMode = $('threeMode'), pill3d = $('pill3d'), homeNote = $('homeNote');
 const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
 
-const stepGap = $('stepGap'), groupGap = $('groupGap'), lang = $('lang'), talk = $('talk'), sfx = $('sfx');
+const stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap'), lang = $('lang'), talk = $('talk'), sfx = $('sfx');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
@@ -502,6 +592,7 @@ const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v ===
 const S = {
   get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
   get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
+  get listenGap() { const v = parseFloat(LS('listenGap', '1.5')); return isNaN(v) ? 1.5 : v; },
   get lang() { return LS('lang', 'en-IN'); },
   get talk() { return LS('talk', '1') === '1'; },
   get sfx() { return LS('sfx', '1') === '1'; },
@@ -532,7 +623,7 @@ const S = {
   get amounts() { try { return Object.assign({}, DEFAULT_AMOUNTS, JSON.parse(LS('amounts', '{}'))); } catch (e) { return DEFAULT_AMOUNTS; } },
 };
 function loadSettingsUI() {
-  stepGap.value = S.stepGap; groupGap.value = S.groupGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
+  stepGap.value = S.stepGap; groupGap.value = S.groupGap; listenGap.value = S.listenGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
@@ -546,7 +637,7 @@ function loadSettingsUI() {
 function saveSettings() {
   try {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
-    set('stepGap', stepGap.value); set('groupGap', groupGap.value);
+    set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('listenGap', listenGap.value);
     set('lang', lang.value); set('talk', talk.value); set('sfx', sfx.value);
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
@@ -774,6 +865,19 @@ settings.querySelector('.body').addEventListener('change', e => { if (e.target.m
 gear.onclick = () => { if (!listening) settings.classList.add('open'); };
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
+// ---- modes ----
+function showMode(which) {
+  [homeScreen, chatMode, threeMode].forEach(m => m.classList.remove('show'));
+  ({ home: homeScreen, chat: chatMode, three: threeMode })[which].classList.add('show');
+  if (which === 'three') enter3d();
+  if (which !== 'chat' && listening) stopListening();
+}
+$('goChat').onclick = () => showMode('chat');
+$('go3d').onclick = () => showMode('three');
+$('backChat').onclick = () => showMode('home');
+$('back3d').onclick = () => showMode('home');
+$('homeConnect').onclick = () => rxChar ? device.gatt.disconnect() : connect();
+$('homeSettings').onclick = () => settings.classList.add('open');
 tapBtn.onclick = () => { renderTapGrid(); tapSheet.classList.add('open'); };
 closeTap.onclick = () => tapSheet.classList.remove('open');
 function renderTapGrid() {
@@ -855,7 +959,11 @@ function logLine(s) { const lines = (log.textContent + '\n' + s).split('\n').sli
 const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e', NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e', NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 let device = null, rxChar = null, inbox = '';
 const enc = new TextEncoder(), dec = new TextDecoder();
-function setLink(on, text) { pill.textContent = text; pill.classList.toggle('on', on); connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM'; }
+function setLink(on, text) {
+  pill.textContent = text; pill.classList.toggle('on', on); pill3d.textContent = text; pill3d.classList.toggle('on', on);
+  connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM'; $('homeConnect').textContent = on ? 'Disconnect' : 'Connect to AURA-ARM';
+  note(homeNote, on ? 'Arm connected.' : '', on ? 'ok' : '');
+}
 async function connect() {
   if (!navigator.bluetooth) { note(poses, 'No Web Bluetooth here. Use Chrome on Android, or Bluefy on iPhone.', 'bad'); return; }
   try {
@@ -971,12 +1079,13 @@ function onSpeech(alts) {
   if (pick.text.toLowerCase() === lastAccepted.text && now - lastAccepted.at < 2500) return;   // duplicate
   lastAccepted = { text: pick.text.toLowerCase(), at: now };
   setHeard(pick.text);
+  breather();                                                        // short deaf pause so the next thing you say starts clean
   handleInput(pick.text, false, pick.conf === null ? undefined : pick.conf);
 }
 
 let micActive = false, ignoreUntil = 0;
 const RESTART_MS = 400, AFTER_REPLY_MS = 1200;
-function updateEars() { ears.classList.toggle('show', listening && awake && micActive && !speaking && !running); }
+function updateEars() { ears.classList.toggle('show', listening && awake && micActive && !speaking && !running && Date.now() >= ignoreUntil); }
 function startRec() {
   if (!listening || micActive) return;
   if (S.engine === 'vosk') { voskStart(); return; }
@@ -1116,6 +1225,11 @@ function voskStop() {
 // The mic is never closed for speech or motion any more (closing it makes Chrome pop);
 // instead results are ignored while speaking/running and for a short guard afterwards.
 function micPause() { held = null; clearTimeout(holdTimer); updateEars(); }
+function breather() {
+  const ms = Math.max(0, S.listenGap * 1000);
+  ignoreUntil = Math.max(ignoreUntil, Date.now() + ms); voskFlush(); held = null; clearTimeout(holdTimer); holdTimer = null;
+  updateEars(); setTimeout(updateEars, ms + 20);
+}
 function micResume(ms) {
   ignoreUntil = Date.now() + (ms || AFTER_REPLY_MS); held = null; clearTimeout(holdTimer); holdTimer = null;
   voskFlush();                                                      // drop whatever the recogniser had half-heard before the pause
@@ -1611,6 +1725,173 @@ async function confused(customLine) {
   }
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+//  3D MODE
+// ============================================================
+const T = {};                                  // three.js state
+const J3 = ['b', 's', 'e', 'w', 'r', 'g'];
+let pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };   // what the model shows
+let armPose = null;                            // what the arm last reported
+let sel3 = 'b', threeReady = false, dirty = false;
+const mirror = () => { try { return Object.assign({ b: 0, s: 0, e: 0, w: 0, r: 0, g: 0 }, JSON.parse(LS('mirror3', '{}'))); } catch (e) { return { b: 0, s: 0, e: 0, w: 0, r: 0, g: 0 }; } };
+
+function build3d() {
+  const box = $('three');
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+  cam.position.set(13, 10, 17);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  box.appendChild(renderer.domElement);
+  const controls = new THREE.OrbitControls(cam, renderer.domElement);
+  controls.target.set(0, 6, 0); controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.52; controls.minDistance = 8; controls.maxDistance = 40;
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x223344, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(5, 10, 6); scene.add(sun);
+  const grid = new THREE.GridHelper(16, 16, 0x2a3650, 0x1c2540); grid.position.y = -0.01; scene.add(grid);
+
+  const blue = new THREE.MeshStandardMaterial({ color: 0x1e64ff, roughness: 0.45, metalness: 0.1 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.5 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0f1a30, roughness: 0.6 });
+  const parts = {};
+  const mesh = (geo, mat, name) => { const m = new THREE.Mesh(geo, mat); if (name) { m.userData.joint = name; parts[name] = parts[name] || []; parts[name].push(m); } return m; };
+  const cap = (r, len, mat, name) => { const c = mesh(new THREE.CylinderGeometry(r, r, len, 28), mat, name); c.rotation.z = Math.PI / 2; return c; };
+
+  // base plate (static) + turret (base joint)
+  const plate = mesh(new THREE.CylinderGeometry(1.9, 2.1, 1.0, 40), white); plate.position.y = 0.5; scene.add(plate);
+  const base = new THREE.Group(); base.position.y = 1.0; scene.add(base);
+  base.add(mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.8, 40), blue, 'b')).position.y = 0.4;
+  const shoulderMount = mesh(new THREE.BoxGeometry(1.7, 1.1, 1.0), blue, 'b'); shoulderMount.position.y = 1.2; base.add(shoulderMount);
+
+  // shoulder joint: pitch about X
+  const shoulder = new THREE.Group(); shoulder.position.y = 1.7; base.add(shoulder);
+  shoulder.add(cap(0.75, 1.9, blue, 's'));
+  const upper = mesh(new THREE.BoxGeometry(0.9, 4.2, 0.8), blue, 's'); upper.position.y = 2.1; shoulder.add(upper);
+
+  // elbow
+  const elbow = new THREE.Group(); elbow.position.y = 4.2; shoulder.add(elbow);
+  elbow.add(cap(0.65, 1.7, blue, 'e'));
+  const fore = mesh(new THREE.BoxGeometry(0.75, 3.6, 0.7), blue, 'e'); fore.position.y = 1.8; elbow.add(fore);
+
+  // wrist pitch
+  const wrist = new THREE.Group(); wrist.position.y = 3.6; elbow.add(wrist);
+  wrist.add(cap(0.5, 1.3, blue, 'w'));
+  const wristBlock = mesh(new THREE.BoxGeometry(0.7, 0.9, 0.6), blue, 'w'); wristBlock.position.y = 0.45; wrist.add(wristBlock);
+
+  // roll about the forearm axis
+  const roll = new THREE.Group(); roll.position.y = 0.9; wrist.add(roll);
+  const palm = mesh(new THREE.BoxGeometry(1.5, 0.7, 0.9), white, 'r'); palm.position.y = 0.35; roll.add(palm);
+  const knuckles = mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 20), dark, 'r'); knuckles.rotation.z = Math.PI / 2; knuckles.position.y = 0.75; roll.add(knuckles);
+
+  // gripper: two fingers that swing open about Z
+  const fingerL = new THREE.Group(), fingerR = new THREE.Group();
+  fingerL.position.set(-0.55, 0.75, 0); fingerR.position.set(0.55, 0.75, 0); roll.add(fingerL); roll.add(fingerR);
+  for (const [fg, sgn] of [[fingerL, -1], [fingerR, 1]]) {
+    const f1 = mesh(new THREE.BoxGeometry(0.28, 1.4, 0.55), blue, 'g'); f1.position.y = 0.7; fg.add(f1);
+    const f2 = mesh(new THREE.BoxGeometry(0.24, 1.1, 0.5), blue, 'g'); f2.position.set(-sgn * 0.18, 1.85, 0); f2.rotation.z = sgn * 0.35; fg.add(f2);
+    const tip = mesh(new THREE.BoxGeometry(0.2, 0.7, 0.45), white, 'g'); tip.position.set(-sgn * 0.42, 2.55, 0); tip.rotation.z = sgn * 0.5; fg.add(tip);
+  }
+
+  Object.assign(T, { scene, cam, renderer, controls, base, shoulder, elbow, wrist, roll, fingerL, fingerR, parts, blue, white, hl: new THREE.MeshStandardMaterial({ color: 0x5eebff, emissive: 0x115566, roughness: 0.4 }) });
+
+  // tap a part to select its joint
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null;
+  renderer.domElement.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 8) return;
+    const r = renderer.domElement.getBoundingClientRect();
+    ptr.x = ((e.clientX - r.left) / r.width) * 2 - 1; ptr.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ptr, cam);
+    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.joint);
+    if (hit) selectJoint(hit.object.userData.joint);
+  });
+
+  const resize = () => { const w = box.clientWidth, h = box.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); };
+  window.addEventListener('resize', resize); T.resize = resize; resize();
+  (function loop() { requestAnimationFrame(loop); if (!threeMode.classList.contains('show')) return; controls.update(); animatePose(); renderer.render(scene, cam); })();
+  threeReady = true;
+}
+
+// smooth the model toward pose3
+const shown = { b: 90, s: 90, e: 90, w: 90, r: 90, g: 40 };
+function animatePose() {
+  const m = mirror(), d = x => x * Math.PI / 180;
+  for (const j of J3) shown[j] += (pose3[j] - shown[j]) * 0.18;
+  const sg = j => (m[j] ? -1 : 1);
+  T.base.rotation.y     = d((shown.b - 90) * sg('b'));
+  T.shoulder.rotation.x = d((shown.s - 90) * sg('s'));
+  T.elbow.rotation.x    = d((shown.e - 90) * sg('e'));
+  T.wrist.rotation.x    = d((shown.w - 90) * sg('w'));
+  T.roll.rotation.y     = d((shown.r - 90) * sg('r'));
+  const open = d(5 + (shown.g / 180) * 40 * (m.g ? -1 : 1) + (m.g ? 40 : 0));
+  T.fingerL.rotation.z = open; T.fingerR.rotation.z = -open;
+}
+function highlight() {
+  for (const [name, meshes] of Object.entries(T.parts)) for (const mm of meshes) {
+    if (name === sel3) { if (!mm.userData.orig) mm.userData.orig = mm.material; mm.material = T.hl; }
+    else if (mm.userData.orig) { mm.material = mm.userData.orig; mm.userData.orig = null; }
+  }
+}
+const JOINT_LABEL = { b: 'Base', s: 'Shoulder', e: 'Elbow', w: 'Wrist', r: 'Roll', g: 'Gripper' };
+function selectJoint(j) {
+  sel3 = j; highlight();
+  [...$('jointChips').children].forEach(c => c.classList.toggle('on', c.dataset.j === j));
+  $('jointSlider').value = pose3[j]; $('jointVal').textContent = Math.round(pose3[j]) + '°';
+}
+function setJoint(j, v) {
+  v = Math.max(0, Math.min(180, Math.round(v)));
+  pose3[j] = v; $('jointVal').textContent = v + '°'; $('jointSlider').value = v;
+  dirty = !!armPose && J3.some(k => pose3[k] !== armPose[k]);
+  $('threePanel').classList.toggle('dirty', dirty);
+  $('threeStatus').textContent = dirty ? 'Pose changed - tap Send to arm when ready.' : (armPose ? 'Matches the arm.' : 'Connect, then Read from arm.');
+}
+async function read3d() {
+  if (!rxChar) { $('threeStatus').textContent = 'Not connected. Use Connect on the home screen.'; return; }
+  $('threeStatus').textContent = 'Reading the arm…';
+  await readAngles();
+  if (!Object.keys(angles).length) { $('threeStatus').textContent = 'The arm did not answer.'; return; }
+  armPose = { ...pose3, ...angles }; pose3 = { ...armPose };
+  selectJoint(sel3); setJoint(sel3, pose3[sel3]);
+  $('threeStatus').textContent = 'Synced with the arm.';
+}
+async function apply3d() {
+  if (!rxChar) { $('threeStatus').textContent = 'Not connected.'; return; }
+  const cmd = 'pose ' + J3.map(j => Math.round(pose3[j])).join(' ');
+  $('threeStatus').textContent = 'Sending… ' + cmd; $('applyBtn').disabled = true;
+  startWhirr(); stepBlip('pose');
+  try {
+    await send(cmd);
+    const travel = Math.max(...J3.map(j => 250 + Math.abs(pose3[j] - (armPose ? armPose[j] : 90)) * 26), 800);
+    await sleep(travel);
+    stopWhirr(); chirp('done');
+    await readAngles();
+    if (Object.keys(angles).length) { armPose = { ...pose3, ...angles }; }
+    else armPose = { ...pose3 };
+    setJoint(sel3, pose3[sel3]);
+    $('threeStatus').textContent = 'Done. The arm is there.';
+  } catch (e) { stopWhirr(); $('threeStatus').textContent = 'Send failed: ' + e.message; }
+  $('applyBtn').disabled = false;
+}
+function enter3d() {
+  if (!threeReady) {
+    if (typeof THREE === 'undefined') { $('threeStatus').textContent = '3D library did not load (no internet?).'; return; }
+    build3d();
+    const chips = $('jointChips');
+    J3.forEach(j => { const b = document.createElement('button'); b.dataset.j = j; b.textContent = JOINT_LABEL[j]; b.onclick = () => selectJoint(j); chips.appendChild(b); });
+    const mr = $('mirrorRow'), m = mirror();
+    J3.forEach(j => { const l = document.createElement('label'); l.innerHTML = `<input type="checkbox" data-j="${j}" ${m[j] ? 'checked' : ''}> ${j}`; l.querySelector('input').onchange = e => { const mm = mirror(); mm[j] = e.target.checked ? 1 : 0; localStorage.setItem('aura.mirror3', JSON.stringify(mm)); }; mr.appendChild(l); });
+    $('jointSlider').oninput = e => setJoint(sel3, +e.target.value);
+    $('nudgeDown').onclick = () => setJoint(sel3, pose3[sel3] - 5);
+    $('nudgeUp').onclick = () => setJoint(sel3, pose3[sel3] + 5);
+    $('readBtn').onclick = read3d;
+    $('applyBtn').onclick = apply3d;
+    $('homePoseBtn').onclick = () => { pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: pose3.g }; setJoint(sel3, pose3[sel3]); };
+    selectJoint('b');
+  }
+  setTimeout(() => T.resize && T.resize(), 50);
+  if (rxChar) read3d();
+}
 </script>
 </body>
 </html>
