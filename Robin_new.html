@@ -1217,6 +1217,20 @@ let thinkTimer = null;
 function startThinking() { if (!S.sfx || thinkTimer) return; thinkTimer = setInterval(() => beep(1200 + Math.random() * 400, 25, 0.04, 'square'), 260); }
 function stopThinking() { clearInterval(thinkTimer); thinkTimer = null; }
 
+// little robot noises: sequences of [frequency, ms]
+const CHIRPS = {
+  wake:     [[660, 70], [880, 70], [1320, 110]],
+  done:     [[1040, 60], [1560, 120]],
+  confused: [[520, 90], [420, 90], [330, 160]],
+  hurt:     [[440, 120], [330, 220]],
+  tap:      [[990, 40]],
+  sleep:    [[520, 90], [390, 160]],
+};
+function chirp(name) {
+  if (!S.sfx) return;
+  let t = 0;
+  for (const [f, ms] of CHIRPS[name] || []) { setTimeout(() => beep(f, ms, 0.12), t); t += ms + 20; }
+}
 function startListening() {
   if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
   listening = true; if (rec) rec.lang = S.lang; startRec();
