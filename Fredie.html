@@ -392,7 +392,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v5.7</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v5.8</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -1125,19 +1125,22 @@ function renderFlow() {
     const j = J3[flow.ji], name = JOINT_LABEL[j], c = calib3()[j];
     $('fTitle').textContent = `Calibrate · ${name}`;
     let body = '';
-    if (flow.phase === 'a') body = `<b>1 · Match.</b> The real ${name.toLowerCase()} is at ${flow.ref !== undefined ? flow.ref + '°' : 'its reference'}. Drag the slider below until the model\'s ${name.toLowerCase()} looks the same as the real one.<small>Roughly is fine.</small>`;
+    if (flow.phase === 'type') body = `<b>How does the ${name.toLowerCase()} move?</b> Watch the real arm and pick one, so the model moves the same way.
+        <div class="dirs"><button data-type="tilt">tilts up / down</button><button data-type="rotate">turns clockwise / anticlockwise</button></div>`;
+    else if (flow.phase === 'a') body = `<b>1 · Match.</b> The real ${name.toLowerCase()} is at ${flow.ref !== undefined ? flow.ref + '°' : 'its reference'}. Drag the slider below until the model\'s ${name.toLowerCase()} looks the same as the real one.<small>Roughly is fine.</small>`;
     else if (flow.phase === 'b') body = `<b>2 · Match again.</b> The arm just moved this joint by ${flow.delta > 0 ? '+' : ''}${flow.delta}°. Drag the slider until the model matches again.`;
     else if (flow.phase === 'c') {
-      const opts = (j === 'w' || j === 'r') ? [['up', 'tilt'], ['down', 'tilt'], ['clockwise', 'rotate'], ['anticlockwise', 'rotate']] : pairsFor(j).map(p => [p[0], null]);
+      const opts = pairsFor(j).map(p => [p[0], null]);            // two choices - the joint's type was already picked
       body = `<b>3 · Which way did it move?</b> Watch the real ${name.toLowerCase()}: when the arm moved it by ${flow.delta > 0 ? '+' : ''}${flow.delta}°, which way did it go?
         <div class="dirs">${opts.map(o => `<button data-w="${o[0]}" data-t="${o[1] || ''}">${o[0]}</button>`).join('')}</div>`;
     }
     else if (flow.phase === 'moving') body = `Moving the ${name.toLowerCase()}…`;
     fBody().innerHTML = body + prog(flow.ji, J3.length, flow.ji) + `<small>${name} · joint ${flow.ji + 1} of ${J3.length}${c && c.plus ? ' · already calibrated, redoing' : ''}</small>`;
-    fBody().querySelectorAll('.dirs button').forEach(b => b.onclick = () => flowDir(b.dataset.w, b.dataset.t));
-    fNext().textContent = 'Next'; fNext().hidden = flow.phase === 'c' || flow.phase === 'moving';
-    fSkip().hidden = flow.phase !== 'a'; fSkip().textContent = 'Skip joint';
-    fBack().hidden = flow.phase === 'moving';
+    fBody().querySelectorAll('.dirs button[data-w]').forEach(b => b.onclick = () => flowDir(b.dataset.w));
+    fBody().querySelectorAll('.dirs button[data-type]').forEach(b => b.onclick = () => flowType(b.dataset.type));
+    fNext().textContent = 'Next'; fNext().hidden = flow.phase === 'c' || flow.phase === 'moving' || flow.phase === 'type';
+    fSkip().hidden = false; fSkip().textContent = 'Skip joint';           // always possible - never get stuck
+    fBack().hidden = false;
   }
   else if (flow.step === 'test') {
     $('fTitle').textContent = 'Test a move';
@@ -1187,9 +1190,8 @@ async function flowNext() {
   if (flow.step === 'chat') { localStorage.setItem('aura.setupDone', '1'); flow.step = 'done'; renderFlow(); showMode('chat'); return; }
   if (flow.step === 'done') { showMode('chat'); }
 }
-async function flowDir(word, type) {
+async function flowDir(word) {
   const j = J3[flow.ji], c = calib3();
-  if (type) { localStorage.setItem(j === 'w' ? 'aura.typeW' : 'aura.typeR', type); (j === 'w' ? typeW : typeR).value = type; }
   const plus = flow.delta > 0 ? word : (pairsFor(j).find(p => p[0] !== word) || [word])[0];
   // for tilt/turn choices the "opposite" is the other word in the same family
   const opposite = { up: 'down', down: 'up', clockwise: 'anticlockwise', anticlockwise: 'clockwise', left: 'right', right: 'left', forward: 'back', back: 'forward', open: 'close', close: 'open' };
@@ -1203,7 +1205,13 @@ async function flowDir(word, type) {
   if (armPose && armPose[j] !== undefined) { pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]); }
   flowBusy(false);
   if (flow.ji + 1 < J3.length) { flow.ji++; flow.phase = 'a'; await calibBegin(); }
-  else { wiz = null; applyCalibToChat(); rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); chirp('done'); flow.step = 'test'; renderFlow(); }
+  else finishCalib();
+}
+function finishCalib() {
+  wiz = null; flow.step = 'test'; flow.phase = 'a'; flowBusy(false); renderFlow();      // move on FIRST, then tidy up
+  try { applyCalibToChat(); } catch (e) { logLine('[setup] apply: ' + e.message); }
+  try { [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); } catch (e) {}
+  try { chirp('done'); } catch (e) {}
 }
 let flowWatch = null;
 function flowBusy(on) {
@@ -1212,9 +1220,16 @@ function flowBusy(on) {
     if (flow.busy) { flow.busy = false; if (flow.phase === 'moving') flow.phase = flow.after || 'a'; stopWhirr(); renderFlow(); showToast('The arm was slow to answer - carrying on'); }
   }, 7000);
 }
-async function calibBegin() {
-  // put this joint at 90 and the model straight, then ask to match
+function flowType(type) {
+  const j = J3[flow.ji];
+  localStorage.setItem(j === 'w' ? 'aura.typeW' : 'aura.typeR', type); (j === 'w' ? typeW : typeR).value = type;
+  try { rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); } catch (e) {}
+  calibBegin(true);
+}
+async function calibBegin(afterType) {
   const j = J3[flow.ji]; wiz = {}; selectJoint(j);
+  if ((j === 'w' || j === 'r') && !afterType) { flow.phase = 'type'; flowBusy(false); renderFlow(); return; }   // ask how it moves first
+  // put this joint at 90 and the model straight, then ask to match
   flow.phase = 'moving'; flow.after = 'a'; flowBusy(true); renderFlow();
   try {
     startWhirr(); try { await send(`${j} 90`); await sleep(1400); } catch (e) {} stopWhirr();
@@ -1225,7 +1240,7 @@ async function calibBegin() {
   flowBusy(false); flow.phase = 'a'; renderFlow();
 }
 function flowBack() {
-  if (flow.busy) return;
+  flowBusy(false); stopWhirr();
   if (flow.step === 'calib') {
     if (flow.phase === 'a') { if (flow.ji > 0) { flow.ji--; calibBegin(); } else { flow.step = 'connect'; wiz = null; renderFlow(); } }
     else { calibBegin(); }                                     // redo this joint from its first match
@@ -1235,8 +1250,8 @@ function flowBack() {
   if (flow.step === 'chat') { flow.step = 'test'; renderFlow(); return; }
 }
 function flowSkip() {
-  if (flow.busy) return;
-  if (flow.step === 'calib') { if (flow.ji + 1 < J3.length) { flow.ji++; calibBegin(); } else { wiz = null; applyCalibToChat(); flow.step = 'test'; renderFlow(); } return; }
+  flowBusy(false); stopWhirr();
+  if (flow.step === 'calib') { if (flow.ji + 1 < J3.length) { flow.ji++; calibBegin(); } else finishCalib(); return; }
   if (flow.step === 'test') { flow.step = 'chat'; renderFlow(); }
 }
 $('fNext').onclick = flowNext; $('fBack').onclick = flowBack; $('fSkip').onclick = flowSkip;
