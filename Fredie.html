@@ -64,15 +64,17 @@
   #three { flex: 1; min-height: 0; position: relative; }
   #three canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #threeHint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; letter-spacing: .1em; text-transform: uppercase; }
-  #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); max-height: 62vh; overflow: auto; }
-  #flow { background: var(--panel); border: 1px solid var(--eye); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+  #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); max-height: 66vh; overflow: auto; }
+  #flow { background: var(--panel); border: 1px solid var(--eye); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
   #flow.done { border-color: rgba(78,212,162,.5); }
   #flow.collapsed #fBody, #flow.collapsed .fBtns { display: none; }
   .fHead { display: flex; align-items: center; gap: 10px; }
   .fHead #fStep { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
   .fHead b { font-size: 16px; flex: 1; }
   .fHead button { padding: 4px 8px; font-size: 12px; }
-  #fBody { font-size: 14px; line-height: 1.45; margin-top: 8px; color: var(--ink); }
+  .fHead #fMore { font-size: 20px; line-height: 1; padding: 0 6px; }
+  #fBody { font-size: 15.5px; line-height: 1.55; margin-top: 10px; color: var(--ink); min-height: 3.2em; }
+  #fBody b { color: var(--eye); }
   #fBody small { color: var(--muted); display: block; margin-top: 4px; }
   #fBody .dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   #fBody .dirs button { padding: 12px; font-size: 15px; }
@@ -357,7 +359,7 @@
   <div id="three"><div id="threeHint">drag to orbit · pinch to zoom · tap a part</div></div>
   <div id="threePanel">
     <div id="flow">
-      <div class="fHead"><span id="fStep">Step 1 of 4</span><b id="fTitle">Connect</b><button id="fHide" class="ghost">hide</button></div>
+      <div class="fHead"><span id="fStep">Step 1 of 4</span><b id="fTitle">Connect</b><button id="fHide" class="ghost">hide</button><button id="fMore" class="ghost" aria-label="More">⋯</button></div>
       <div id="fBody"></div>
       <div class="fBtns"><button id="fBack">Back</button><button id="fSkip">Skip</button><button id="fNext" class="act">Next</button></div>
     </div>
@@ -373,7 +375,7 @@
       <button id="applyBtn" class="act">Send to arm</button>
     </div>
     <div id="threeStatus">Connect, then Read from arm.</div>
-    <div class="row2" style="margin-top:8px"><button id="calibBtn">Redo setup</button><button id="adjustBtn">Adjust this joint</button></div>
+    <div id="moreMenu" hidden class="row2" style="margin-top:8px"><button id="calibBtn">Redo setup</button><button id="adjustBtn">Adjust this joint</button></div>
     <div id="wizard" hidden><div id="wizText"></div><div class="row2" style="margin-top:8px"><button id="wizCancel">Cancel</button><button id="wizNext" class="act">Done</button></div></div>
   </div>
 </div>
@@ -390,7 +392,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v5.6</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v5.7</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -1158,16 +1160,19 @@ function renderFlow() {
 
 async function flowNext() {
   if (flow.busy) return;
-  if (flow.step === 'connect') { if (!rxChar) { await connect(); if (!rxChar) return; await read3d(); } flow.step = 'calib'; flow.ji = 0; flow.phase = 'a'; wiz = {}; await calibBegin(); return; }
+  if (flow.step === 'connect') { if (!rxChar) { await connect(); if (!rxChar) return; try { await read3d(); } catch (e) {} } flow.step = 'calib'; flow.ji = 0; flow.phase = 'a'; wiz = {}; await calibBegin(); return; }
   if (flow.step === 'calib') {
     const j = J3[flow.ji];
     if (flow.phase === 'a') {
       flow.r1 = flow.ref; flow.m1 = pose3[j];
       flow.delta = flow.r1 + 30 <= 180 ? 30 : -30;
-      flow.phase = 'moving'; flow.busy = true; renderFlow();
-      startWhirr(); try { await send(`${j} ${flow.delta > 0 ? '+' : ''}${flow.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
-      await readAngles(); armPose = { ...angles }; flow.r2 = armPose[j] !== undefined ? armPose[j] : flow.r1 + flow.delta;
-      flow.busy = false; flow.phase = 'b'; renderFlow(); return;
+      flow.phase = 'moving'; flow.after = 'b'; flowBusy(true); renderFlow();
+      try {
+        startWhirr(); try { await send(`${j} ${flow.delta > 0 ? '+' : ''}${flow.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
+        await readAngles(); armPose = { ...angles };
+      } catch (e) { logLine('[setup] ' + e.message); }
+      flow.r2 = armPose && armPose[j] !== undefined ? armPose[j] : flow.r1 + flow.delta;
+      flowBusy(false); flow.phase = 'b'; renderFlow(); return;
     }
     if (flow.phase === 'b') {
       const dm = pose3[j] - flow.m1, dr = flow.r2 - flow.r1, c = calib3();
@@ -1190,21 +1195,34 @@ async function flowDir(word, type) {
   const opposite = { up: 'down', down: 'up', clockwise: 'anticlockwise', anticlockwise: 'clockwise', left: 'right', right: 'left', forward: 'back', back: 'forward', open: 'close', close: 'open' };
   c[j] = { ...c[j], plus: flow.delta > 0 ? word : (opposite[word] || word) }; saveCalib3(c);
   // back to the reference, then next joint
-  flow.phase = 'moving'; flow.busy = true; renderFlow();
-  startWhirr(); try { await send(`${j} ${flow.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
-  await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
-  flow.busy = false;
+  flow.phase = 'moving'; flow.after = 'a'; flowBusy(true); renderFlow();
+  try {
+    startWhirr(); try { await send(`${j} ${flow.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
+    await readAngles(); armPose = { ...angles };
+  } catch (e) { logLine('[setup] ' + e.message); }
+  if (armPose && armPose[j] !== undefined) { pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]); }
+  flowBusy(false);
   if (flow.ji + 1 < J3.length) { flow.ji++; flow.phase = 'a'; await calibBegin(); }
   else { wiz = null; applyCalibToChat(); rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); chirp('done'); flow.step = 'test'; renderFlow(); }
+}
+let flowWatch = null;
+function flowBusy(on) {
+  flow.busy = on; clearTimeout(flowWatch);
+  if (on) flowWatch = setTimeout(() => {                       // never leave the user stuck on "moving…"
+    if (flow.busy) { flow.busy = false; if (flow.phase === 'moving') flow.phase = flow.after || 'a'; stopWhirr(); renderFlow(); showToast('The arm was slow to answer - carrying on'); }
+  }, 7000);
 }
 async function calibBegin() {
   // put this joint at 90 and the model straight, then ask to match
   const j = J3[flow.ji]; wiz = {}; selectJoint(j);
-  flow.phase = 'moving'; flow.busy = true; renderFlow();
-  startWhirr(); try { await send(`${j} 90`); await sleep(1400); } catch (e) {} stopWhirr();
-  await readAngles(); armPose = { ...angles }; flow.ref = armPose[j] !== undefined ? armPose[j] : 90;
+  flow.phase = 'moving'; flow.after = 'a'; flowBusy(true); renderFlow();
+  try {
+    startWhirr(); try { await send(`${j} 90`); await sleep(1400); } catch (e) {} stopWhirr();
+    await readAngles(); armPose = { ...angles };
+  } catch (e) { logLine('[setup] ' + e.message); }
+  flow.ref = armPose && armPose[j] !== undefined ? armPose[j] : 90;
   pose3[j] = 90; setJoint(j, 90);
-  flow.busy = false; flow.phase = 'a'; renderFlow();
+  flowBusy(false); flow.phase = 'a'; renderFlow();
 }
 function flowBack() {
   if (flow.busy) return;
@@ -1222,6 +1240,7 @@ function flowSkip() {
   if (flow.step === 'test') { flow.step = 'chat'; renderFlow(); }
 }
 $('fNext').onclick = flowNext; $('fBack').onclick = flowBack; $('fSkip').onclick = flowSkip;
+$('fMore').onclick = () => { const m = $('moreMenu'); m.hidden = !m.hidden; if (!m.hidden) m.scrollIntoView({ block: 'nearest' }); };
 $('fHide').onclick = () => { const f = $('flow'); f.classList.toggle('collapsed'); $('fHide').textContent = f.classList.contains('collapsed') ? 'show' : 'hide'; };
 function updateStartHere() { if (flow.step === 'connect' || flow.step === 'done') renderFlow(); }
 function startCalib() { flow.step = 'calib'; flow.ji = 0; wiz = {}; if (!rxChar) { flow.step = 'connect'; renderFlow(); return; } calibBegin(); }
@@ -1346,7 +1365,9 @@ function poseParser(line) {
 }
 async function readAngles() {
   if (!rxChar) return angles;
-  collectingAngles = true; await send('?'); await sleep(1200); collectingAngles = false;
+  collectingAngles = true;
+  try { await send('?'); await sleep(1200); } catch (e) { logLine('[arm] read failed: ' + e.message); }
+  collectingAngles = false;
   lastAngles = { ...angles };
   return angles;
 }
