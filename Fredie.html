@@ -318,7 +318,9 @@
   .step { display: flex; gap: 6px; align-items: center; margin-top: 6px; border-radius: 10px; padding: 2px 4px; }
   .step.sel { background: rgba(94,235,255,.08); outline: 1px solid rgba(94,235,255,.35); }
   .step.dragging { opacity: .5; }
-  .step .grip { cursor: grab; color: var(--muted); font-size: 16px; padding: 6px 4px; touch-action: none; user-select: none; }
+  .step .grip { cursor: grab; color: var(--muted); font-size: 18px; padding: 8px 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .step .ud { display: flex; flex-direction: column; gap: 2px; }
+  .step .ud button { padding: 2px 8px; font-size: 11px; line-height: 1.2; background: transparent; color: var(--muted); border: 1px solid var(--line); }
   .step .n { width: 22px; font-size: 12px; color: var(--muted); text-align: right; }
   .step select, .step input { margin: 0; padding: 9px 6px; font-size: 13px; flex: 1; min-width: 0; }
   .step select.j { flex: 0 0 92px; } .step select.d { flex: 1 1 110px; }
@@ -400,7 +402,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v6.1</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v6.2</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -930,8 +932,8 @@ function exampleTasks() {
     { say: 'say yes', reply: 'Yes!', steps: [jm(T, 'down', 40), jm(T, 'up', 40), jm(T, 'down', 40), jm(T, 'up', 40)] },
     { say: 'say no', reply: 'Nope.', steps: [jm('b', 'left', 45), jm('b', 'right', 90), jm('b', 'left', 45)] },
     { say: 'bow', reply: 'At your service.', steps: [jm('s', 'down', 50), { type: 'wait', s: 1 }, jm('s', 'up', 50)] },
-    { say: 'pick up', reply: 'Got it!', steps: [{ type: 'grip', v: 'open' }, jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'wait', s: 0.5 }, { type: 'grip', v: 'close' }, { type: 'wait', s: 0.5 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
-    { say: 'put down', reply: 'There you go.', steps: [jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'grip', v: 'open' }, { type: 'wait', s: 0.5 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
+    { say: 'pick up', reply: 'Got it!', steps: [{ type: 'joint', j: 'g', d: '=', n: 140 }, jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'wait', s: 0.5 }, { type: 'joint', j: 'g', d: '=', n: 0 }, { type: 'wait', s: 2 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
+    { say: 'put down', reply: 'There you go.', steps: [jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'joint', j: 'g', d: '=', n: 140 }, { type: 'wait', s: 1 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
   ];
 }
 // built-in examples are always there; a user task with the same name replaces the built-in one
@@ -939,7 +941,12 @@ function allTasks() {
   const mine = tasks.filter(t => t.say && (t.steps || []).length), names = new Set(mine.map(t => t.say));
   return [...mine, ...exampleTasks().filter(t => !names.has(t.say)).map(t => ({ ...t, builtin: true }))];
 }
-function loadTasks() { tasks = S.tasks; renderTasks(); }
+function loadTasks() {
+  tasks = S.tasks;
+  const jp = S.jointPos.g || {};
+  tasks.forEach(t => (t.steps || []).forEach((st, i) => { if (st.type === 'grip') t.steps[i] = { type: 'joint', j: 'g', d: '=', n: st.v === 'open' ? (jp.open ?? 140) : (jp.close ?? 0) }; }));
+  renderTasks();
+}
 function saveTasks() { try { localStorage.setItem('aura.tasks', JSON.stringify(tasks, (k, v) => k === '_sel' ? undefined : v)); } catch (e) {} updateSummaries(); }
 function renderTasks() {
   tasksBox.innerHTML = '';
@@ -973,9 +980,9 @@ function renderTask(t, ti) {
 
     </div>
     <div class="steps"></div>
-    <p class="hint" style="margin:8px 0 0">Tap a step to select it; new steps go in after it. Drag ⋮⋮ to reorder.</p>
+    <p class="hint" style="margin:8px 0 0">Tap a step to select it; new steps go in after it. Use ▲▼ or drag ⋮⋮ to reorder. The gripper is a joint: Move a joint → Gripper → open / close / exact.</p>
     <div class="addSteps">
-      <button data-add="joint">+ Move a joint</button><button data-add="pose">+ Go to pose</button><button data-add="grip">+ Gripper</button>
+      <button data-add="joint">+ Move a joint</button><button data-add="pose">+ Go to pose</button>
       <button data-add="wait">+ Wait</button><button data-add="say">+ Say</button><button data-add="task">+ Run another task</button>
       <button data-add="cur" class="cur">+ Current position</button>
     </div>`;
@@ -1000,7 +1007,6 @@ function renderTask(t, ti) {
     }
     else if (kind === 'joint') push({ type: 'joint', j: 'b', d: '+', n: 30 });
     else if (kind === 'pose') push({ type: 'pose', name: poseNames[0] || 'home' });
-    else if (kind === 'grip') push({ type: 'grip', v: 'open' });
     else if (kind === 'wait') push({ type: 'wait', s: 2 });
     else if (kind === 'say') push({ type: 'say', text: '' });
     else if (kind === 'task') push({ type: 'task', name: '' });
@@ -1021,7 +1027,7 @@ function renderStep(t, st, si) {
   else if (st.type === 'say') row.innerHTML = n + `<span class="n" style="width:auto">say</span><input class="t" type="text" placeholder="something to say" value="${(st.text || '').replace(/"/g, '&quot;')}">`;
   else if (st.type === 'task') row.innerHTML = n + `<span class="n" style="width:auto">run task</span><select class="tk"><option value="">choose…</option>${taskOpts}</select>`;
   else if (st.type === 'abs') row.innerHTML = n + `<span class="n" style="width:auto;flex:1;text-align:left">position: ${Object.entries(st.a).map(([k, v]) => k + ' ' + v).join(', ')}</span>`;
-  row.innerHTML += `<button class="x" title="remove step">×</button>`;
+  row.innerHTML += `<span class="ud"><button class="up" title="move up">▲</button><button class="dn" title="move down">▼</button></span><button class="x" title="remove step">×</button>`;
   const q = c => row.querySelector(c);
   if (st.type === 'joint') { q('.j').value = st.j; q('.d').value = st.d; q('.j').onchange = e => { st.j = e.target.value; q('.d').innerHTML = dirOptions(st.j); q('.d').value = st.d; saveTasks(); }; q('.d').onchange = e => { st.d = e.target.value; saveTasks(); }; q('.num').oninput = e => { st.n = Math.max(0, Math.min(180, parseInt(e.target.value, 10) || 0)); saveTasks(); }; }
   if (st.type === 'pose') { q('.p').value = st.name; q('.p').onchange = e => { st.name = e.target.value; saveTasks(); }; }
@@ -1030,21 +1036,28 @@ function renderStep(t, st, si) {
   if (st.type === 'say') { q('.t').oninput = e => { st.text = e.target.value; saveTasks(); }; }
   if (st.type === 'task') { q('.tk').value = st.name || ''; q('.tk').onchange = e => { st.name = e.target.value; saveTasks(); }; }
   q('.x').onclick = () => { t.steps.splice(si, 1); t._sel = undefined; saveTasks(); renderTasks(); };
+  const swap = (a, b) => { if (b < 0 || b >= t.steps.length) return; [t.steps[a], t.steps[b]] = [t.steps[b], t.steps[a]]; t._sel = b; saveTasks(); renderTasks(); };
+  q('.up').onclick = e => { e.stopPropagation(); swap(si, si - 1); };
+  q('.dn').onclick = e => { e.stopPropagation(); swap(si, si + 1); };
   row.onclick = e => { if (e.target.closest('input, select, button')) return; t._sel = (t._sel === si) ? undefined : si; renderTasks(); };
   const grip = row.querySelector('.grip');
   grip.onpointerdown = e => {
-    e.preventDefault(); grip.setPointerCapture(e.pointerId); row.classList.add('dragging');
-    const rows = () => [...row.parentNode.querySelectorAll('.step')];
+    e.preventDefault(); e.stopPropagation(); row.classList.add('dragging');
+    const list = row.parentNode, body = settings.querySelector('.body'); body.style.overflow = 'hidden';
+    const rows = () => [...list.querySelectorAll('.step')];
     const move = ev => {
-      const under = rows().find(r => r !== row && (() => { const b = r.getBoundingClientRect(); return ev.clientY > b.top && ev.clientY < b.bottom; })());
-      if (under) { const b = under.getBoundingClientRect(); if (ev.clientY < b.top + b.height / 2) under.before(row); else under.after(row); }
+      ev.preventDefault();
+      const y = ev.clientY;
+      const under = rows().find(r => r !== row && (() => { const b = r.getBoundingClientRect(); return y > b.top && y < b.bottom; })());
+      if (under) { const b = under.getBoundingClientRect(); if (y < b.top + b.height / 2) under.before(row); else under.after(row); }
     };
     const up = () => {
-      grip.onpointermove = null; grip.onpointerup = null; row.classList.remove('dragging');
+      document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+      body.style.overflow = ''; row.classList.remove('dragging');
       const order = rows().map(r => +r.dataset.si); const moved = t.steps.slice(); t.steps = order.map(i => moved[i]); t._sel = undefined;
       saveTasks(); renderTasks();
     };
-    grip.onpointermove = move; grip.onpointerup = up; grip.onpointercancel = up;
+    document.addEventListener('pointermove', move, { passive: false }); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
   };
   return row;
 }
