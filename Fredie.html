@@ -392,7 +392,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v5.8</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v6.0</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -559,9 +559,10 @@
         <label>Language for the phone engine<select id="lang"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option></select></label>
         <label>Minimum confidence to act (0.3 loose - 0.8 strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
         <label>When it clearly hears a sentence it does not know (AI off)<select id="askUnknown"><option value="1">Say it didn't understand</option><option value="0">Stay quiet</option></select></label>
+        <label>Arm speed for tasks and moves (1 slow - 5 fast)<select id="armSpeed"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5" selected>5 (default)</option></select></label>
         <div class="row2">
-          <label>Seconds between steps<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
-          <label>Seconds between tasks<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
+          <label>Seconds between steps<input id="stepGap" type="text" value="0.2" inputmode="decimal"></label>
+          <label>Seconds between tasks<input id="groupGap" type="text" value="2" inputmode="decimal"></label>
         </div>
         <label>Pause after each thing you say (seconds)<input id="listenGap" type="text" value="1.5" inputmode="decimal"></label>
       </div>
@@ -629,7 +630,7 @@ const tapBtn = $('tapBtn'), tapSheet = $('tapSheet'), closeTap = $('closeTap'), 
 const homeScreen = $('homeScreen'), chatMode = $('chatMode'), threeMode = $('threeMode'), pill3d = $('pill3d'), homeNote = $('homeNote');
 const connectBtn = $('connectBtn'), reloadBtn = $('reloadBtn'), poses = $('poses');
 
-const stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap'), lang = $('lang'), talk = $('talk'), sfx = $('sfx');
+const armSpeed = $('armSpeed'), stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap'), lang = $('lang'), talk = $('talk'), sfx = $('sfx');
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
@@ -692,8 +693,9 @@ function defaultGuide() {
 }
 const LS = (k, d) => { const v = localStorage.getItem('aura.' + k); return v === null ? d : v; };
 const S = {
-  get stepGap() { return parseFloat(LS('stepGap', '1')) || 1; },
-  get groupGap() { return parseFloat(LS('groupGap', '3')) || 3; },
+  get armSpeed() { return Math.max(1, Math.min(5, parseInt(LS('armSpeed', '5'), 10) || 5)); },
+  get stepGap() { const v = parseFloat(LS('stepGap', '0.2')); return isNaN(v) ? 0.2 : v; },
+  get groupGap() { const v = parseFloat(LS('groupGap', '2')); return isNaN(v) ? 2 : v; },
   get listenGap() { const v = parseFloat(LS('listenGap', '1.5')); return isNaN(v) ? 1.5 : v; },
   get lang() { return LS('lang', 'en-IN'); },
   get talk() { return LS('talk', '1') === '1'; },
@@ -729,7 +731,7 @@ const S = {
   get amounts() { try { return Object.assign({}, DEFAULT_AMOUNTS, JSON.parse(LS('amounts', '{}'))); } catch (e) { return DEFAULT_AMOUNTS; } },
 };
 function loadSettingsUI() {
-  stepGap.value = S.stepGap; groupGap.value = S.groupGap; listenGap.value = S.listenGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
+  armSpeed.value = S.armSpeed; stepGap.value = S.stepGap; groupGap.value = S.groupGap; listenGap.value = S.listenGap; lang.value = S.lang; talk.value = S.talk ? '1' : '0'; sfx.value = S.sfx ? '1' : '0';
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   typeW.value = jointTypes().w; typeR.value = jointTypes().r;
@@ -746,7 +748,7 @@ function loadSettingsUI() {
 function saveSettings() {
   try {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
-    set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('listenGap', listenGap.value);
+    set('armSpeed', armSpeed.value); set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('listenGap', listenGap.value);
     set('lang', lang.value); set('talk', talk.value); set('sfx', sfx.value);
     set('wakeWord', wakeWord.value.trim() || 'Fredie'); applyName(); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
@@ -884,11 +886,13 @@ function exampleTasks() {
   const jm = (j, word, n) => ({ type: 'joint', j, d: sf(j, word), n });
   const say = text => ({ type: 'say', text });
   return [
-    { say: 'wave', reply: 'Hello there!', steps: [jm(R, 'clockwise', 35), jm(R, 'anticlockwise', 35), jm(R, 'clockwise', 35), jm(R, 'anticlockwise', 35), jm(R, 'clockwise', 35)] },
-    { say: 'dance', reply: 'That was fun!', random: true, steps: [say("Let's party!"), jm('b', 'left', 25), jm('s', 'up', 12), jm('b', 'right', 50), jm('s', 'down', 12), say('Woo!'), jm('e', 'forward', 20), jm(T, 'up', 15), jm('b', 'left', 25), jm(T, 'down', 15), say('Shake it!'), jm('e', 'back', 20), jm(R, 'clockwise', 30), jm(R, 'anticlockwise', 30)] },
-    { say: 'say yes', reply: 'Yes!', steps: [jm(T, 'down', 15), jm(T, 'up', 15), jm(T, 'down', 15), jm(T, 'up', 15)] },
-    { say: 'say no', reply: 'Nope.', steps: [jm('b', 'left', 20), jm('b', 'right', 40), jm('b', 'left', 20)] },
-    { say: 'bow', reply: 'At your service.', steps: [jm('s', 'down', 30), { type: 'wait', s: 1 }, jm('s', 'up', 30)] },
+    { say: 'wave', reply: 'Hello there!', steps: [jm(R, 'clockwise', 45), jm(R, 'anticlockwise', 90), jm(R, 'clockwise', 90), jm(R, 'anticlockwise', 90), jm(R, 'clockwise', 45)] },
+    { say: 'dance', reply: 'That was fun!', random: true, steps: [say("Let's party!"), jm('b', 'left', 45), jm('s', 'up', 30), jm('b', 'right', 90), jm('s', 'down', 30), say('Woo!'), jm('e', 'forward', 40), jm(T, 'up', 40), jm('b', 'left', 45), jm(T, 'down', 40), say('Shake it!'), jm('e', 'back', 40), jm(R, 'clockwise', 60), jm(R, 'anticlockwise', 60)] },
+    { say: 'say yes', reply: 'Yes!', steps: [jm(T, 'down', 40), jm(T, 'up', 40), jm(T, 'down', 40), jm(T, 'up', 40)] },
+    { say: 'say no', reply: 'Nope.', steps: [jm('b', 'left', 45), jm('b', 'right', 90), jm('b', 'left', 45)] },
+    { say: 'bow', reply: 'At your service.', steps: [jm('s', 'down', 50), { type: 'wait', s: 1 }, jm('s', 'up', 50)] },
+    { say: 'pick up', reply: 'Got it!', steps: [{ type: 'grip', v: 'open' }, jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'wait', s: 0.5 }, { type: 'grip', v: 'close' }, { type: 'wait', s: 0.5 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
+    { say: 'put down', reply: 'There you go.', steps: [jm('s', 'down', 45), jm('e', 'forward', 30), { type: 'grip', v: 'open' }, { type: 'wait', s: 0.5 }, jm('e', 'back', 30), jm('s', 'up', 45)] },
   ];
 }
 // built-in examples are always there; a user task with the same name replaces the built-in one
@@ -927,6 +931,7 @@ function renderTask(t, ti) {
       <label>It replies (optional)<input type="text" class="treply" placeholder="All tidy!"></label>
       <button class="x" title="delete task">×</button>
       <label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:13px;margin-top:6px"><input type="checkbox" class="trand" style="width:auto;margin:0"> shuffle the moves each time (good for a dance)</label>
+
     </div>
     <div class="steps"></div>
     <div class="addSteps">
@@ -938,6 +943,7 @@ function renderTask(t, ti) {
   card.querySelector('.tsay').oninput = e => { t.say = e.target.value.trim().toLowerCase(); saveTasks(); };
   card.querySelector('.treply').oninput = e => { t.reply = e.target.value.trim(); saveTasks(); };
   card.querySelector('.trand').checked = !!t.random; card.querySelector('.trand').onchange = e => { t.random = e.target.checked; saveTasks(); };
+
   card.querySelector('.head .x').onclick = () => { if (confirm('Delete task "' + (t.say || 'untitled') + '"?')) { tasks.splice(ti, 1); saveTasks(); renderTasks(); } };
   const stepsEl = card.querySelector('.steps');
   (t.steps || []).forEach((st, si) => stepsEl.appendChild(renderStep(t, st, si)));
@@ -1358,7 +1364,7 @@ async function connect() {
     const tx = await svc.getCharacteristic(NUS_TX);
     await tx.startNotifications();
     tx.addEventListener('characteristicvaluechanged', e => onArmText(dec.decode(e.target.value)));
-    setLink(true, 'connected'); await loadPoses();
+    setLink(true, 'connected'); armSpeedSent = 0; await loadPoses();
     if (threeReady) { await read3d(); if (flow.step === 'connect') renderFlow(); }
   } catch (e) { note(poses, 'Could not connect: ' + e.message, 'bad'); }
 }
@@ -1905,10 +1911,16 @@ function resolveGroup(part) {
 //  Executing
 // ============================================================
 let running = false;
+let armSpeedSent = 0;
+async function ensureSpeed() { const sp = S.armSpeed; if (armSpeedSent !== sp) { try { await send('speed ' + sp); armSpeedSent = sp; } catch (e) {} } }
+// travel-time scale vs the speed-3 baseline the estimate assumes
+const speedScale = () => ({ 1: 3, 2: 1.5, 3: 1, 4: 0.75, 5: 0.6 })[S.armSpeed] || 1;
 async function runGroups(groups) {
   running = true; setFace('moving'); micPause(); startWhirr();
+  await ensureSpeed();
   try {
     for (let g = 0; g < groups.length && running; g++) {
+      const fast = S.armSpeed >= 4;
       for (let i = 0; i < groups[g].length && running; i++) {
         const c = groups[g][i];
         if (c.startsWith('wait:')) { setDoing('Waiting…'); await sleep(parseInt(c.slice(5), 10) || 0); continue; }
@@ -1918,8 +1930,8 @@ async function runGroups(groups) {
         if (lc !== c) logLine('[limit] ' + c + ' -> ' + lc);
         stepBlip(lc); await send(lc);
         setDoing((groups.length > 1 ? `Part ${g + 1} of ${groups.length}: ` : '') + groups[g].join('  ›  '));
-        const travel = moveTime(lc);
-        if (i < groups[g].length - 1) await sleep(Math.max(S.stepGap * 1000, travel));
+        const travel = Math.round(moveTime(lc) * speedScale());
+        if (i < groups[g].length - 1) await sleep(Math.max(S.stepGap * 1000, travel * 0.9));
         else await sleep(travel);                                            // let the last move finish before "done"
       }
       if (g < groups.length - 1 && running) { setDoing(`Waiting ${S.groupGap}s before part ${g + 2}…`); await sleep(S.groupGap * 1000); }
@@ -2082,8 +2094,8 @@ const GESTURES = {
 };
 async function gesture(name) {
   const cmds = GESTURES[name]; if (!cmds || !rxChar || running) return;
-  running = true; micPause(); startWhirr();
-  try { for (const c of cmds) { stepBlip(c); await send(c); await sleep(Math.max(500, moveTime(c))); } } catch (e) {}
+  running = true; micPause(); startWhirr(); await ensureSpeed();
+  try { for (const c of cmds) { stepBlip(c); await send(c); await sleep(Math.max(300, Math.round(moveTime(c) * speedScale()))); } } catch (e) {}
   stopWhirr(); running = false; micResume(800);
 }
 function timeGreeting() {
@@ -2296,7 +2308,7 @@ async function apply3d() {
   if (!rxChar) { $('threeStatus').textContent = 'Not connected.'; return; }
   const cmd = 'pose ' + J3.map(j => toReal(j, pose3[j])).join(' ');
   $('threeStatus').textContent = 'Sending… ' + cmd; $('applyBtn').disabled = true;
-  startWhirr(); stepBlip('pose');
+  await ensureSpeed(); startWhirr(); stepBlip('pose');
   try {
     await send(cmd);
     const travel = Math.max(...J3.map(j => 250 + Math.abs(toReal(j, pose3[j]) - (armPose && armPose[j] !== undefined ? armPose[j] : 90)) * 26), 800);
