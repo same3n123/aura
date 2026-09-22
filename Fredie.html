@@ -64,7 +64,20 @@
   #three { flex: 1; min-height: 0; position: relative; }
   #three canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #threeHint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; letter-spacing: .1em; text-transform: uppercase; }
-  #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); }
+  #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); max-height: 62vh; overflow: auto; }
+  #startHere { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; }
+  #startHere.done { border-color: rgba(78,212,162,.5); }
+  .shHead { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .shHead span { color: var(--muted); font-size: 12.5px; flex: 1; }
+  .shHead button { padding: 4px 8px; font-size: 12px; }
+  #shSteps { list-style: none; margin: 8px 0 0; padding: 0; }
+  #shSteps li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  #shSteps li div { flex: 1; min-width: 0; } #shSteps li b { font-size: 14px; display: block; } #shSteps li small { color: var(--muted); font-size: 12px; }
+  #shSteps li button { padding: 8px 12px; font-size: 13px; }
+  .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #05261A; }
+  li.ok .tick { background: var(--ok); border-color: var(--ok); } li.ok .tick::after { content: '✓'; }
+  li.now .tick { border-color: var(--act); box-shadow: 0 0 0 3px rgba(255,138,61,.25); }
+  #startHere.collapsed #shSteps { display: none; }
   #jointChips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
   #jointChips button { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
   #jointChips button.on { border-color: var(--eye); color: var(--eye); }
@@ -75,6 +88,7 @@
   .sliderRow input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; border-radius: 50%; background: var(--eye); margin-top: -11px; border: 3px solid var(--bg); }
   #jointVal { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
   .threeBtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .threeBtns.two { grid-template-columns: 1fr 1fr; }
   .threeBtns button { padding: 13px 8px; font-size: 14px; }
   #threeStatus { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 1.3em; }
   #wizard { margin-top: 10px; background: var(--panel); border: 1px solid var(--eye); border-radius: 14px; padding: 12px; }
@@ -82,6 +96,23 @@
   #wizText b { color: var(--eye); }
   .dirty #applyBtn { background: var(--act); color: #1A0D00; }
 
+  /* settings groups */
+  .grp { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); margin-top: 10px; overflow: hidden; }
+  .grp summary { list-style: none; cursor: pointer; padding: 14px 16px; font-weight: 600; font-size: 16px; display: flex; align-items: center; gap: 10px; }
+  .grp summary::-webkit-details-marker { display: none; }
+  .grp summary::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 22px; transform: rotate(90deg); transition: transform .2s; }
+  .grp[open] summary::after { transform: rotate(-90deg); }
+  .grp summary small { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-left: 2px; }
+  .gi { font-size: 16px; width: 22px; text-align: center; }
+  .gbody { padding: 0 16px 16px; border-top: 1px solid var(--line); }
+  .gbody h4 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 18px 0 2px; }
+  .gbody .row2 label { margin-top: 10px; }
+  .colorRow .presets { margin-top: 0; }
+  .sheet .body { padding-top: 6px; }
+
+  #bar.minimal { padding-bottom: 0; }
+  #bigName { text-align: center; font-size: 30px; font-weight: 700; letter-spacing: .14em; color: var(--eye); text-transform: uppercase; margin: 2px 0 0;
+    text-shadow: 0 0 18px var(--glow); }
   /* ---------- top bar ---------- */
   #bar { display: flex; align-items: center; gap: 8px; padding: calc(10px + var(--sat)) 14px 10px; background: var(--bg); }
   #bar h1 { font-size: 17px; margin: 0; letter-spacing: .08em; font-weight: 700; white-space: nowrap; display: flex; align-items: baseline; gap: 6px; }
@@ -89,9 +120,13 @@
   #pill.on, .pill.on { background: rgba(78,212,162,.15); color: var(--ok); }
   #bar .spacer { flex: 1; }
   #gear { padding: 10px; border-radius: 12px; }
-  #power { padding: 10px 16px; font-weight: 600; min-width: 74px; }
+  #power { width: 58px; height: 58px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  #power svg { width: 26px; height: 26px; }
   #power.on { background: var(--bad); color: #fff; }
   #power.off { background: var(--ok); color: #05261A; }
+  @media (prefers-reduced-motion: no-preference) { #power.on { animation: pulseMic 1.6s ease-in-out infinite; } }
+  @keyframes pulseMic { 50% { box-shadow: 0 0 0 10px rgba(255,92,92,.18); } }
 
   /* ---------- face ---------- */
   #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 20px; min-height: 0; }
@@ -209,7 +244,9 @@
 
 
   /* ---------- bottom ---------- */
-  #bottom { padding: 8px 14px calc(12px + var(--sab)); display: flex; gap: 8px; align-items: center; }
+  #bottom { padding: 6px 14px calc(12px + var(--sab)); display: flex; gap: 8px; align-items: center; }
+  #bottom.open { flex-wrap: wrap; }
+  #bottom.open input { flex: 1 1 100%; order: -2; } #bottom.open #askBtn { order: -1; }
   #bottom input { margin: 0; flex: 1; display: none; }
   #bottom.open input, #bottom.open #askBtn { display: block; }
   #askBtn { display: none; }
@@ -223,6 +260,15 @@
   #tapGrid button.sys { background: var(--bg2); color: var(--muted); font-weight: 500; min-height: 60px; }
   #tapGrid button.stop { background: var(--bad); color: #fff; grid-column: 1 / -1; min-height: 60px; }
   #tapGrid button:active { background: var(--act); color: #1A0D00; }
+  #sayBtn { padding: 10px 12px; color: var(--muted); font-size: 13px; border: 1px solid var(--line); background: transparent; border-radius: 999px; white-space: nowrap; }
+  #hint { font-size: 12.5px; color: var(--muted); opacity: .75; text-align: center; min-height: 1.3em; margin-top: 2px; }
+  #hint b { color: var(--eye); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chips button { padding: 9px 12px; font-size: 14px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+  .chips button.b { border-color: rgba(94,235,255,.5); }
+  .sayGrp { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .sayGrp h3 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .sayGrp p { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; top: 0; background: var(--bg); transform: translateY(100%);
     transition: transform .3s cubic-bezier(.4,0,.2,1); z-index: 20; display: flex; flex-direction: column; }
   .sheet.open { transform: translateY(0); }
@@ -248,6 +294,11 @@
   #jointWords th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 500; padding: 0 4px 4px; }
   #jointWords td { padding: 3px 2px; font-size: 13px; color: var(--muted); }
   #jointWords input { margin: 0; padding: 9px; font-size: 13px; }
+  .builtins { margin-top: 14px; border-radius: 14px; padding: 12px; background: rgba(94,235,255,.07); border: 1px solid rgba(94,235,255,.35); }
+  .builtins .bt { font-weight: 600; margin-bottom: 6px; } .builtins .bt small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .brow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(94,235,255,.15); }
+  .brow b { min-width: 74px; } .brow span { flex: 1; color: var(--muted); font-size: 12.5px; }
+  .brow button { padding: 7px 10px; font-size: 12.5px; background: var(--bg2); border: 1px solid var(--line); }
   .task { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 10px; }
   .task .head { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
   .task .head input { margin: 0; }
@@ -270,7 +321,7 @@
 <body>
 
 <!-- ================= HOME ================= -->
-<div id="homeScreen" class="mode show">
+<div id="homeScreen" class="mode" hidden>
   <h1>FREDIE</h1>
   <div class="sub">Your robotic arm. Pick how you want to drive it.</div>
   <button class="tile" id="goChat">
@@ -286,15 +337,30 @@
 </div>
 
 <!-- ================= 3D MODE ================= -->
-<div id="threeMode" class="mode">
+<div id="threeMode" class="mode show">
   <div id="bar">
-    <button class="back ghost" id="back3d" aria-label="Home">‹</button>
-    <h1>3D <small style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">mode</small></h1>
+    <h1>3D <small style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">setup &amp; test</small></h1>
     <span id="pill3d" class="pill">not connected</span>
     <span class="spacer"></span>
+    <button id="toChat" class="ghost" aria-label="Chat mode" title="Chat mode">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M9 15c1.5 1.2 4.5 1.2 6 0"/></svg>
+    </button>
+    <button id="gear3d" class="ghost" aria-label="Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
   </div>
   <div id="three"><div id="threeHint">drag to orbit · pinch to zoom · tap a part</div></div>
   <div id="threePanel">
+    <div id="startHere">
+      <div class="shHead"><b>Start here</b><span id="shSum"></span><button id="shToggle" class="ghost">hide</button></div>
+      <ol id="shSteps">
+        <li data-step="connect"><span class="tick"></span><div><b>Connect the arm</b><small>Bluetooth to AURA-ARM.</small></div><button id="shConnect">Connect</button></li>
+        <li data-step="read"><span class="tick"></span><div><b>Read the arm</b><small>The model copies the arm's current pose.</small></div><button id="shRead">Read</button></li>
+        <li data-step="calib"><span class="tick"></span><div><b>Calibrate each joint</b><small id="shCalibSub">Match the model to what you see. Three quick steps per joint.</small></div><button id="shCalib">Calibrate</button></li>
+        <li data-step="test"><span class="tick"></span><div><b>Test a move</b><small>Change a joint below, then Send to arm.</small></div><button id="shTest">Send</button></li>
+        <li data-step="chat"><span class="tick"></span><div><b>Go to chat mode</b><small>Words and phrases now follow what you calibrated.</small></div><button id="shChat" class="act">Chat</button></li>
+      </ol>
+    </div>
     <div id="jointChips"></div>
     <div class="sliderRow">
       <button id="nudgeDown">−5</button>
@@ -302,9 +368,8 @@
       <button id="nudgeUp">+5</button>
       <span id="jointVal">90°</span>
     </div>
-    <div class="threeBtns">
+    <div class="threeBtns two">
       <button id="readBtn">Read from arm</button>
-      <button id="homePoseBtn">Home</button>
       <button id="applyBtn" class="act">Send to arm</button>
     </div>
     <div id="threeStatus">Connect, then Read from arm.</div>
@@ -318,20 +383,17 @@
 
 <!-- ================= CHAT MODE ================= -->
 <div id="chatMode" class="mode">
-<div id="bar">
-  <button class="back ghost" id="backChat" aria-label="Home">‹</button>
-  <h1>FREDIE <small id="ver" style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0">v4.7</small></h1>
-  <span id="pill">not connected</span>
+<div id="bar" class="minimal">
   <span class="spacer"></span>
-  <button id="tapBtn" class="ghost" aria-label="Tap mode">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+  <button id="to3d" class="ghost" aria-label="3D mode" title="3D mode">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
   </button>
   <button id="gear" class="ghost" aria-label="Settings">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
   </button>
-  <button id="power" class="off">Start</button>
 </div>
-
+<div id="bigName">FREDIE</div>
+<span id="pill" hidden></span><span id="ver" hidden>v5.5</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -346,210 +408,180 @@
 </div>
 
 <div id="console">
+  <div id="hint"></div>
   <div id="ears" aria-hidden="true">
     <svg viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
     <span>listening</span>
     <svg class="r" viewBox="0 0 24 30"><path d="M8 26c-4-3-6-7-6-12C2 7 6 3 11 3c5 0 8 4 8 9 0 3-1 5-3 7l-3 5c-1 2-3 3-5 2z"/><path d="M8 14c0-3 2-5 4-5"/></svg>
   </div>
   <div id="heard"></div>
-  <div id="doing">Tap Start to begin listening</div>
+  <div id="doing">Tap the mic to start listening</div>
 </div>
 <div id="bottom">
   <input id="typed" type="text" placeholder="type a command" autocomplete="off" autocapitalize="none">
   <button id="askBtn">Send</button>
+  <button id="sayBtn">What can I say?</button>
   <span class="spacer"></span>
   <button id="kbBtn" class="ghost" aria-label="Show text and typing">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
   </button>
   <button id="logBtn" class="ghost" aria-label="Log">≡</button>
+  <button id="power" class="off" aria-label="Start or stop listening">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+  </button>
 </div>
 
 </div><!-- /chatMode -->
 
 <!-- ---------- settings sheet ---------- -->
 <div id="settings" class="sheet">
-  <header><h2>Settings</h2><button id="closeSettings" class="ghost">Done</button></header>
+  <header><h2>Settings <small id="verLabel" style="font-size:12px;color:var(--muted);font-weight:400"></small></h2><button id="closeSettings" class="ghost">Done</button></header>
   <div class="body">
+    <div class="row2" style="margin-top:10px"><button id="toHome">3D setup &amp; test</button><button id="toTap">Tap mode</button></div>
 
-    <div class="section">
-      <h3>Arm</h3>
-      <div class="row2">
-        <button id="connectBtn" class="act">Connect to AURA-ARM</button>
-        <button id="reloadBtn">Reload poses</button>
+    <details class="grp" open>
+      <summary><span class="gi">🔗</span> Arm <small id="armSum"></small></summary>
+      <div class="gbody">
+        <div class="row2"><button id="connectBtn" class="act">Connect to AURA-ARM</button></div>
+        <button id="reloadBtn" hidden></button>
+        <div class="note" id="poses">Connect to load the saved poses.</div>
+        <select id="typeW" hidden><option value="rotate"></option><option value="tilt"></option></select>
+        <select id="typeR" hidden><option value="tilt"></option><option value="rotate"></option></select>
       </div>
-      <div class="note" id="poses">Connect to load the saved poses.</div>
-    </div>
+    </details>
 
-    <div class="section">
-      <h3>AI mode</h3>
-      <label>AI mode
-        <select id="aiMode"><option value="0">Off - only shortcuts, poses and joint moves</option><option value="1">On - Claude interprets everything else</option></select></label>
-      <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
-      <label>Model<input id="model" type="text" value="claude-sonnet-5"></label>
-      <div class="row2"><button id="testBtn">Test key</button></div>
-      <div class="note" id="keyNote"></div>
-      <label>Joint guide - tell the AI what each joint does on YOUR arm
-        <textarea id="jointGuide"></textarea></label>
-      <div class="row2"><button id="guideReset">Reset guide to default</button></div>
-      <p class="hint">Check the direction words against your arm: type "b +20" in the command box and see which way it turns, then fix the base line if needed. Same for wrist up/down.</p>
-      <label>Personality and extra rules
-        <textarea id="persona" placeholder="Playful, witty, short replies. Loves snacks."></textarea></label>
-      <p class="hint">With AI on, sentences the app cannot match itself are sent to Claude with this guide, the arm's current angles, your poses and your shortcuts. It replies with moves and a spoken line. Chat that is not about moving just gets a reply.</p>
-    </div>
+    <details class="grp">
+      <summary><span class="gi">✨</span> Customize <small>name, voice, look</small></summary>
+      <div class="gbody">
+        <label>Name (say it to wake it)<input id="wakeWord" type="text" value="Fredie" autocapitalize="words"></label>
+        <label>Stays awake for (seconds)<input id="awakeSecs" type="text" value="30" inputmode="numeric"></label>
+        <label>Accent<select id="accent"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option></select></label>
+        <div class="row2"><button id="testVoice">Test voice</button></div>
+        <div class="row2" style="margin-top:8px">
+          <label>Spoken replies<select id="talk"><option value="1">On</option><option value="0">Off</option></select></label>
+          <label>Sound effects<select id="sfx"><option value="1">On</option><option value="0">Off</option></select></label>
+        </div>
+        <label>Theme<select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
 
-    <div class="section">
-      <h3>Tasks</h3>
-      <p class="hint">A task is something you say and a list of steps it does. Build steps with the buttons - no codes needed. Say two task names in one sentence to run them one after the other.</p>
-      <div id="tasks"></div>
-      <div class="row2" style="margin-top:10px"><button id="addTask" class="act">+ New task</button></div>
-    </div>
+        <h4>Face</h4>
+        <div id="facePreview" class="s-listening"><div class="faceSvg"></div></div>
+        <label>Eye colour</label>
+        <div class="colorRow"><input id="eyeColor" type="color" value="#5EEBFF"><div class="presets" id="eyePresets">
+          <button data-c="#5EEBFF" style="background:#5EEBFF"></button><button data-c="#7CFF8A" style="background:#7CFF8A"></button>
+          <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
+          <button data-c="#FF6BC6" style="background:#FF6BC6"></button><button data-c="#B78BFF" style="background:#B78BFF"></button><button data-c="#FFFFFF" style="background:#FFFFFF"></button>
+        </div></div>
+        <div class="row2">
+          <label>Hair<select id="hair"><option value="none">None</option><option value="spiky">Spiky</option><option value="bob">Bob</option><option value="curly">Curly</option><option value="mohawk">Mohawk</option><option value="side">Side sweep</option></select></label>
+          <label>Mustache<select id="mustache"><option value="none">None</option><option value="handlebar">Handlebar</option><option value="chevron">Chevron</option></select></label>
+        </div>
+        <label>Hair colour</label>
+        <div class="colorRow"><input id="hairColor" type="color" value="#FF8A3D"><div class="presets" id="hairPresets">
+          <button data-c="#2B2B2B" style="background:#2B2B2B"></button><button data-c="#6B3E1E" style="background:#6B3E1E"></button>
+          <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
+          <button data-c="#FF4D6D" style="background:#FF4D6D"></button><button data-c="#B78BFF" style="background:#B78BFF"></button><button data-c="#5EEBFF" style="background:#5EEBFF"></button>
+        </div></div>
+        <div class="row2">
+          <label>Extras<select id="extra"><option value="none">None</option><option value="glasses">Glasses</option><option value="antenna">Antenna</option><option value="bow">Bow</option></select></label>
+          <label>Bow colour<input id="bowColor" type="color" value="#FF4D6D" style="height:44px;padding:4px"></label>
+        </div>
+        <div class="row2">
+          <label>Blush<select id="blush"><option value="0">Off</option><option value="1">On</option></select></label>
+          <label>Brows<select id="brows"><option value="1">On</option><option value="0">Off</option></select></label>
+        </div>
+      </div>
+    </details>
 
-
-
-    <div class="section">
-      <h3>Movement phrases</h3>
-      <p class="hint">Natural things you say and the single joint move each one means. "extend forward a little" = the phrase plus an amount word. Edit, add, or remove rows.</p>
-      <table id="moves">
-        <thead><tr><th style="width:38%">You say</th><th>Joint</th><th>Direction</th><th style="width:60px">°</th><th></th></tr></thead>
-        <tbody id="moveRows"></tbody>
-      </table>
-      <div class="row2" style="margin-top:8px"><button id="addMove">+ Add phrase</button><button id="movesReset">Reset to defaults</button></div>
-      <label>Amount words</label>
-      <div class="amt"><span>a little =</span><input id="littleN" type="number" min="1" max="180"><span>° for</span><input id="littleW" type="text"></div>
-      <div class="amt"><span>a lot =</span><input id="lotN" type="number" min="1" max="180"><span>° for</span><input id="lotW" type="text"></div>
-      <div class="amt"><span>nothing said =</span><input id="defN" type="number" min="1" max="180"><span>°</span></div>
-      <p class="hint">A spoken number always wins: "extend forward 45" moves 45.</p>
-    </div>
-
-    <div class="section">
-      <h3>Joint types</h3>
-      <p class="hint">What the two joints above the elbow physically do. Everything - the 3D model, "look down", "twist", the AI's guide - follows this.</p>
-      <label>Wrist (w, channel 3)<select id="typeW"><option value="rotate">turns / rotates the gripper</option><option value="tilt">tilts up and down</option></select></label>
-      <label>Roll (r, channel 4)<select id="typeR"><option value="tilt">tilts up and down</option><option value="rotate">turns / rotates the gripper</option></select></label>
-      <p class="hint" style="margin-top:14px">Servo angles the app will never go past. How far each joint really travels is learned in 3D mode → Calibrate model.</p>
-      <table id="rangeTbl">
-        <thead><tr><th>Joint</th><th>Min</th><th>Max</th></tr></thead>
-        <tbody>
-          <tr><td>Wrist (w)</td><td><input data-j="w" data-k="min" type="number" min="0" max="180"></td><td><input data-j="w" data-k="max" type="number" min="0" max="180"></td></tr>
-          <tr><td>Roll (r)</td><td><input data-j="r" data-k="min" type="number" min="0" max="180"></td><td><input data-j="r" data-k="max" type="number" min="0" max="180"></td></tr>
-          <tr><td>Gripper (g)</td><td><input data-j="g" data-k="min" type="number" min="0" max="180"></td><td><input data-j="g" data-k="max" type="number" min="0" max="180"></td></tr>
-        </tbody>
-      </table>
-      <div class="row2" style="margin-top:8px"><button id="rangeReset">Reset ranges</button></div>
-      <p class="hint">The gripper's "open" and "close" positions come from the arm itself (set open / set close), so its limits only matter for numbered commands.</p>
-    </div>
-
-    <div class="section">
-      <h3>Joint words</h3>
-      <p class="hint">For each joint, the words that mean a higher angle (+) and the words that mean a lower angle (−). Comma-separated; add your own. "shoulder up" moves 30° in whichever column "up" is in. A joint with no direction word uses the first + word.</p>
-      <table id="jointWords">
-        <thead><tr><th style="width:22%">Joint</th><th>Words for + (higher)</th><th>Words for − (lower)</th></tr></thead>
-        <tbody>
-          <tr><td>Base (b)</td><td><input data-j="b" data-d="+" type="text"></td><td><input data-j="b" data-d="-" type="text"></td></tr>
-          <tr><td>Shoulder (s)</td><td><input data-j="s" data-d="+" type="text"></td><td><input data-j="s" data-d="-" type="text"></td></tr>
-          <tr><td>Elbow (e)</td><td><input data-j="e" data-d="+" type="text"></td><td><input data-j="e" data-d="-" type="text"></td></tr>
-          <tr><td>Wrist (w)</td><td><input data-j="w" data-d="+" type="text"></td><td><input data-j="w" data-d="-" type="text"></td></tr>
-          <tr><td>Roll (r)</td><td><input data-j="r" data-d="+" type="text"></td><td><input data-j="r" data-d="-" type="text"></td></tr>
-          <tr><td>Gripper (g)</td><td><input data-j="g" data-d="+" type="text"></td><td><input data-j="g" data-d="-" type="text"></td></tr>
-        </tbody>
-      </table>
-      <div class="row2" style="margin-top:8px"><button id="jointReset">Reset to defaults</button></div>
-    </div>
-
-    <div class="section">
-      <h3>Timing</h3>
-      <label>Seconds between commands inside one shortcut<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
-      <label>Seconds between tasks said in one sentence<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
-      <label>Pause after each thing you say, before it listens again<input id="listenGap" type="text" value="1.5" inputmode="decimal"></label>
-    </div>
-
-    <div class="section">
-      <h3>Name and voice</h3>
-      <label>The arm's name (say it to wake it up)<input id="wakeWord" type="text" value="Fredie" autocapitalize="words"></label>
-      <label>Seconds it stays awake after the last command<input id="awakeSecs" type="text" value="30" inputmode="numeric"></label>
-      <label>Accent for spoken replies
-        <select id="accent">
-          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option>
-          <option value="en-AU">English (Australia)</option><option value="en-IN">English (India)</option>
+    <details class="grp">
+      <summary><span class="gi">🧠</span> AI <small id="aiSum"></small></summary>
+      <div class="gbody">
+        <label>AI mode<select id="aiMode"><option value="0">Off - only tasks, poses and joint moves</option><option value="1">On - Claude interprets everything else</option></select></label>
+        <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
+        <div class="row2"><label>Model<input id="model" type="text" value="claude-sonnet-5"></label><label>&nbsp;<button id="testBtn" style="width:100%">Test key</button></label></div>
+        <div class="note" id="keyNote"></div>
+        <label>Personality<select id="persona">
+          <option value="">Playful and witty (default)</option>
+          <option value="Calm, polite and precise. Short, warm sentences. Never jokes at the user's expense.">Calm and polite</option>
+          <option value="An excited kid who loves robots. Exclamation marks, big enthusiasm, easily delighted.">Excited kid</option>
+          <option value="A dry, deadpan butler. Impeccably polite, faintly unimpressed, very short replies.">Dry butler</option>
+          <option value="A cheerful pirate. Says 'arr' and 'matey', calls tasks 'missions', loves treasure.">Pirate</option>
+          <option value="A serene zen master. Calm, brief, occasionally a tiny bit of wisdom about patience.">Zen master</option>
         </select></label>
-      <div class="row2"><button id="testVoice">Test voice</button></div>
-      <label>Listening engine
-        <select id="engine"><option value="vosk">On-device (no beeps, works offline)</option><option value="phone">Phone's own (Google, beeps on Android)</option></select></label>
-      <p class="hint">On-device downloads a 40 MB speech model the first time (about a minute), then keeps it. It knows your shortcut phrases and pose names, so commands are caught more reliably. With AI mode on it listens for free speech instead.</p>
-      <label>Speech model URL (advanced)
-        <input id="modelUrl" type="text" value="https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz"></label>
-      <label>Language the phone engine listens for
-        <select id="lang">
-          <option value="en-IN">English (India)</option><option value="en-US">English (US)</option>
-          <option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option>
-        </select></label>
-      <label>Spoken replies
-        <select id="talk"><option value="1">On</option><option value="0">Off</option></select></label>
-      <label>Sound effects (chirps)
-        <select id="sfx"><option value="1">On</option><option value="0">Off</option></select></label>
-    </div>
-
-    <div class="section">
-      <h3>Look</h3>
-      <label>Theme
-        <select id="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
-    </div>
-
-    <div class="section">
-      <h3>Face</h3>
-      <div id="facePreview" class="s-listening"><div class="faceSvg"></div></div>
-      <label>Eye colour</label>
-      <div class="colorRow"><input id="eyeColor" type="color" value="#5EEBFF"><span class="hint" style="margin:0">or pick a preset</span></div>
-      <div class="presets" id="eyePresets">
-        <button data-c="#5EEBFF" style="background:#5EEBFF"></button><button data-c="#7CFF8A" style="background:#7CFF8A"></button>
-        <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
-        <button data-c="#FF6BC6" style="background:#FF6BC6"></button><button data-c="#B78BFF" style="background:#B78BFF"></button>
-        <button data-c="#FFFFFF" style="background:#FFFFFF"></button>
+        <label>Joint guide - what each joint does on this arm (filled in automatically; edit if needed)<textarea id="jointGuide"></textarea></label>
+        <div class="row2"><button id="guideReset">Reset guide</button></div>
       </div>
-      <label>Hair
-        <select id="hair"><option value="none">None</option><option value="spiky">Spiky</option><option value="bob">Bob</option>
-          <option value="curly">Curly</option><option value="mohawk">Mohawk</option><option value="side">Side sweep</option></select></label>
-      <label>Hair colour</label>
-      <div class="colorRow"><input id="hairColor" type="color" value="#FF8A3D"></div>
-      <div class="presets" id="hairPresets">
-        <button data-c="#2B2B2B" style="background:#2B2B2B"></button><button data-c="#6B3E1E" style="background:#6B3E1E"></button>
-        <button data-c="#FFD84D" style="background:#FFD84D"></button><button data-c="#FF8A3D" style="background:#FF8A3D"></button>
-        <button data-c="#FF4D6D" style="background:#FF4D6D"></button><button data-c="#B78BFF" style="background:#B78BFF"></button>
-        <button data-c="#5EEBFF" style="background:#5EEBFF"></button>
+    </details>
+
+    <details class="grp">
+      <summary><span class="gi">✅</span> Tasks <small id="taskSum"></small></summary>
+      <div class="gbody">
+        <p class="hint">Something you say and the steps it does. Say two task names in one sentence to run both.</p>
+        <div id="tasks"></div>
+        <div class="row2" style="margin-top:10px"><button id="addTask" class="act">+ New task</button></div>
       </div>
-      <label>Mustache
-        <select id="mustache"><option value="none">None</option><option value="handlebar">Handlebar</option><option value="chevron">Chevron</option></select></label>
-      <p class="hint">Uses the hair colour.</p>
-      <label>Extras
-        <select id="extra"><option value="none">None</option><option value="glasses">Glasses</option><option value="antenna">Antenna</option><option value="bow">Bow</option></select></label>
-      <label>Bow colour</label>
-      <div class="colorRow"><input id="bowColor" type="color" value="#FF4D6D"></div>
-      <label>Blush
-        <select id="blush"><option value="0">Off</option><option value="1">On</option></select></label>
-      <label>Brows
-        <select id="brows"><option value="1">On</option><option value="0">Off</option></select></label>
-    </div>
+    </details>
 
-    <div class="section">
-      <h3>Noise filtering</h3>
-      <label>Minimum confidence to act (0.3 = loose, 0.8 = strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
-      <label>When it clearly hears a sentence it does not know (and AI mode is off)
-        <select id="askUnknown"><option value="1">Say "Sorry, I didn't understand"</option><option value="0">Stay quiet</option></select></label>
-      <p class="hint">Words it hears but rejects show faintly with a "?" so you can see what the noise sounds like to it. Raise the confidence if it keeps reacting to background sound; lower it if it ignores you.</p>
-    </div>
+    <details class="grp">
+      <summary><span class="gi">↔️</span> Movement <small>phrases and words</small></summary>
+      <div class="gbody">
+        <h4>Phrases</h4>
+        <p class="hint">Natural things you say and the joint move each means. Amounts are real degrees.</p>
+        <table id="moves">
+          <thead><tr><th style="width:38%">You say</th><th>Joint</th><th>Direction</th><th style="width:60px">°</th><th></th></tr></thead>
+          <tbody id="moveRows"></tbody>
+        </table>
+        <div class="row2" style="margin-top:8px"><button id="addMove">+ Add phrase</button><button id="movesReset">Reset phrases</button></div>
+        <div class="amt"><span>a little =</span><input id="littleN" type="number" min="1" max="180"><span>° for</span><input id="littleW" type="text"></div>
+        <div class="amt"><span>a lot =</span><input id="lotN" type="number" min="1" max="180"><span>° for</span><input id="lotW" type="text"></div>
+        <div class="amt"><span>nothing said =</span><input id="defN" type="number" min="1" max="180"><span>°</span></div>
 
-    <div class="section">
-      <h3>Backup</h3>
-      <p class="hint">Everything - tasks, phrases, face, name, joint words - in one file. The API key is not included unless you tick the box.</p>
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="expKey" type="checkbox" style="width:auto;margin:0"> include the Claude API key</label>
-      <div class="row2" style="margin-top:8px"><button id="exportBtn">Export to file</button><button id="importBtn">Import from file</button></div>
-      <div class="row2" style="margin-top:8px"><button id="copyBtn">Copy as text</button><button id="pasteBtn">Paste from text</button></div>
-      <input id="importFile" type="file" accept=".json,application/json" style="display:none">
-      <div class="note" id="backupNote"></div>
-    </div>
+        <h4>Joint words</h4>
+        <p class="hint">Filled in by the 3D calibration. Words that mean a higher servo angle (+) and a lower one (−), per joint.</p>
+        <table id="jointWords">
+          <thead><tr><th style="width:22%">Joint</th><th>+ (higher)</th><th>− (lower)</th></tr></thead>
+          <tbody>
+            <tr><td>Base</td><td><input data-j="b" data-d="+" type="text"></td><td><input data-j="b" data-d="-" type="text"></td></tr>
+            <tr><td>Shoulder</td><td><input data-j="s" data-d="+" type="text"></td><td><input data-j="s" data-d="-" type="text"></td></tr>
+            <tr><td>Elbow</td><td><input data-j="e" data-d="+" type="text"></td><td><input data-j="e" data-d="-" type="text"></td></tr>
+            <tr><td>Wrist</td><td><input data-j="w" data-d="+" type="text"></td><td><input data-j="w" data-d="-" type="text"></td></tr>
+            <tr><td>Roll</td><td><input data-j="r" data-d="+" type="text"></td><td><input data-j="r" data-d="-" type="text"></td></tr>
+            <tr><td>Gripper</td><td><input data-j="g" data-d="+" type="text"></td><td><input data-j="g" data-d="-" type="text"></td></tr>
+          </tbody>
+        </table>
+        <div class="row2" style="margin-top:8px"><button id="jointReset">Reset words</button></div>
+      </div>
+    </details>
 
-    <div class="row2" style="margin-top:16px"><button id="saveBtn" class="act">Save settings</button></div>
-    <div class="note" id="saveNote"></div>
+    <details class="grp">
+      <summary><span class="gi">🎧</span> Listening &amp; timing</summary>
+      <div class="gbody">
+        <label>Listening engine<select id="engine"><option value="vosk">On-device (no beeps, works offline)</option><option value="phone">Phone's own (Google, beeps on Android)</option></select></label>
+        <label>Speech model URL (advanced)<input id="modelUrl" type="text" value="https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz"></label>
+        <label>Language for the phone engine<select id="lang"><option value="en-IN">English (India)</option><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="hi-IN">Hindi</option><option value="te-IN">Telugu</option></select></label>
+        <label>Minimum confidence to act (0.3 loose - 0.8 strict)<input id="minConf" type="text" value="0.6" inputmode="decimal"></label>
+        <label>When it clearly hears a sentence it does not know (AI off)<select id="askUnknown"><option value="1">Say it didn't understand</option><option value="0">Stay quiet</option></select></label>
+        <div class="row2">
+          <label>Seconds between steps<input id="stepGap" type="text" value="1" inputmode="decimal"></label>
+          <label>Seconds between tasks<input id="groupGap" type="text" value="3" inputmode="decimal"></label>
+        </div>
+        <label>Pause after each thing you say (seconds)<input id="listenGap" type="text" value="1.5" inputmode="decimal"></label>
+      </div>
+    </details>
+
+    <details class="grp">
+      <summary><span class="gi">💾</span> Backup</summary>
+      <div class="gbody">
+        <p class="hint">Everything in one file. The API key is left out unless you tick the box.</p>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input id="expKey" type="checkbox" style="width:auto;margin:0"> include the Claude API key</label>
+        <div class="row2" style="margin-top:8px"><button id="exportBtn">Export to file</button><button id="importBtn">Import from file</button></div>
+        <div class="row2" style="margin-top:8px"><button id="copyBtn">Copy as text</button><button id="pasteBtn">Paste from text</button></div>
+        <input id="importFile" type="file" accept=".json,application/json" style="display:none">
+        <div class="note" id="backupNote"></div>
+      </div>
+    </details>
+
+    <div class="row2" style="margin-top:16px"><button id="saveBtn" class="act">Save</button></div>
+    <div class="note" id="saveNote">Changes save automatically.</div>
   </div>
 </div>
 
@@ -557,6 +589,12 @@
 <div id="tapSheet" class="sheet">
   <header><h2>Tap mode</h2><button id="closeTap" class="ghost">Done</button></header>
   <div class="body" style="padding:0"><div id="tapGrid"></div></div>
+</div>
+
+<!-- ---------- what can I say sheet ---------- -->
+<div id="saySheet" class="sheet">
+  <header><h2>What can I say?</h2><button id="closeSay" class="ghost">Done</button></header>
+  <div class="body" style="padding:0" id="sayBody"></div>
 </div>
 
 <!-- ---------- log sheet ---------- -->
@@ -596,17 +634,13 @@ const stepGap = $('stepGap'), groupGap = $('groupGap'), listenGap = $('listenGap
 const saveBtn = $('saveBtn'), saveNote = $('saveNote'), wakeWord = $('wakeWord'), awakeSecs = $('awakeSecs'), accent = $('accent'), minConf = $('minConf'), askUnknown = $('askUnknown');
 const testVoice = $('testVoice'), theme = $('theme'), engine = $('engine'), modelUrl = $('modelUrl');
 const jointInputs = [...document.querySelectorAll('#jointWords input')];
-const typeW = $('typeW'), typeR = $('typeR'), rangeInputs = [...document.querySelectorAll('#rangeTbl input')];
+const typeW = $('typeW'), typeR = $('typeR'), rangeInputs = [];
 const tasksBox = $('tasks'), addTaskBtn = $('addTask');
 const moveRows = $('moveRows'), addMoveBtn = $('addMove'), movesResetBtn = $('movesReset');
 const littleN = $('littleN'), littleW = $('littleW'), lotN = $('lotN'), lotW = $('lotW'), defN = $('defN');
 // bottom three are MG996R (full 180); the top three are SG90s on 90-degree joints
-const DEFAULT_RANGES = { b: { min: 0, max: 180 }, s: { min: 0, max: 180 }, e: { min: 0, max: 180 },
-                         w: { min: 45, max: 135 }, r: { min: 45, max: 135 }, g: { min: 0, max: 180 } };
-function jointRanges() {
-  try { const r = JSON.parse(LS('ranges', '{}')); const out = {}; for (const j in DEFAULT_RANGES) out[j] = Object.assign({}, DEFAULT_RANGES[j], r[j] || {}); return out; }
-  catch (e) { return JSON.parse(JSON.stringify(DEFAULT_RANGES)); }
-}
+const DEFAULT_RANGES = { b: { min: 0, max: 180 }, s: { min: 0, max: 180 }, e: { min: 0, max: 180 }, w: { min: 0, max: 180 }, r: { min: 0, max: 180 }, g: { min: 0, max: 180 } };
+function jointRanges() { return JSON.parse(JSON.stringify(DEFAULT_RANGES)); }   // full travel; the arm's own firmware limits apply
 function clampJoint(j, v) { const r = jointRanges()[j] || { min: 0, max: 180 }; return Math.max(r.min, Math.min(r.max, Math.round(v))); }
 function jointTypes() { return { b: 'rotate', s: 'tilt', e: 'tilt', w: LS('typeW', 'rotate'), r: LS('typeR', 'tilt'), g: 'grip' }; }
 const tiltJoint = () => jointTypes().r === 'tilt' ? 'r' : (jointTypes().w === 'tilt' ? 'w' : null);
@@ -675,7 +709,11 @@ const S = {
   get accent() { return LS('accent', 'en-US'); },
   get theme() { return LS('theme', 'dark'); },
   get engine() { return LS('engine', 'vosk'); },
-  get jointWords() { try { const j = JSON.parse(LS('jointWords', 'null')); return j || defaultJointWords(); } catch (e) { return defaultJointWords(); } },
+  get jointWords() {
+    const d = defaultJointWords();
+    try { const j = JSON.parse(LS('jointWords', 'null')) || {}; for (const k in d) { j[k] = j[k] || {}; if (!(j[k]['+'] || '').trim()) j[k]['+'] = d[k]['+']; if (!(j[k]['-'] || '').trim()) j[k]['-'] = d[k]['-']; } return j; }
+    catch (e) { return d; }
+  },
   get modelUrl() { return LS('modelUrl', 'https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz'); },
   get eyeColor() { return LS('eyeColor', '#5EEBFF'); },
   get hair() { return LS('hair', 'none'); },
@@ -696,13 +734,14 @@ function loadSettingsUI() {
   wakeWord.value = S.wakeWord; awakeSecs.value = S.awakeSecs; accent.value = S.accent; minConf.value = S.minConf; askUnknown.value = S.askUnknown ? '1' : '0';
   theme.value = S.theme; applyTheme(S.theme); engine.value = S.engine; modelUrl.value = S.modelUrl;
   typeW.value = jointTypes().w; typeR.value = jointTypes().r;
-  const rg = jointRanges(); rangeInputs.forEach(i => i.value = rg[i.dataset.j][i.dataset.k]);
-  const jw = S.jointWords; jointInputs.forEach(i => i.value = (jw[i.dataset.j] || {})[i.dataset.d] || '');
+  const jw = S.jointWords, djw = defaultJointWords(); jointInputs.forEach(i => i.value = ((jw[i.dataset.j] || {})[i.dataset.d] || '').trim() || djw[i.dataset.j][i.dataset.d]);
   const am = S.amounts; littleN.value = am.littleN; littleW.value = am.littleW; lotN.value = am.lotN; lotW.value = am.lotW; defN.value = am.defN;
   renderMoves();
   eyeColor.value = S.eyeColor; hair.value = S.hair; mustache.value = S.mustache; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
   blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
-  aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model; persona.value = S.persona;
+  aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model;
+  persona.value = [...persona.options].some(o => o.value === S.persona) ? S.persona : '';
+  updateSummaries();
   jointGuide.value = S.jointGuide;
 }
 function saveSettings() {
@@ -710,12 +749,11 @@ function saveSettings() {
     const set = (k, v) => localStorage.setItem('aura.' + k, v);
     set('stepGap', stepGap.value); set('groupGap', groupGap.value); set('listenGap', listenGap.value);
     set('lang', lang.value); set('talk', talk.value); set('sfx', sfx.value);
-    set('wakeWord', wakeWord.value.trim() || 'Fredie'); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
+    set('wakeWord', wakeWord.value.trim() || 'Fredie'); applyName(); set('awakeSecs', awakeSecs.value); set('accent', accent.value);
     set('minConf', minConf.value); set('askUnknown', askUnknown.value);
     set('theme', theme.value); set('engine', engine.value); set('modelUrl', modelUrl.value.trim());
     const jw = {}; jointInputs.forEach(i => { jw[i.dataset.j] = jw[i.dataset.j] || {}; jw[i.dataset.j][i.dataset.d] = i.value.trim(); }); set('jointWords', JSON.stringify(jw));
     set('typeW', typeW.value); set('typeR', typeR.value);
-    const rg = jointRanges(); rangeInputs.forEach(i => { const v = parseInt(i.value, 10); if (!isNaN(v)) rg[i.dataset.j][i.dataset.k] = v; }); set('ranges', JSON.stringify(rg));
     set('amounts', JSON.stringify({ littleN: +littleN.value || 15, littleW: littleW.value, lotN: +lotN.value || 45, lotW: lotW.value, defN: +defN.value || 30 }));
     set('moves', JSON.stringify(readMoves()));
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
@@ -766,7 +804,9 @@ function mixHex(hex, k, toDark) {   // dim a colour toward the background
   const c = x => Math.round(x + (t - x) * k);
   return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`;
 }
+function applyName() { const el = $('bigName'); if (el) el.textContent = S.wakeWord; }
 function applyFace() {
+  applyName();
   const r = document.documentElement.style, dark = S.theme !== 'light';
   r.setProperty('--eye', S.eyeColor);
   r.setProperty('--glow', hexToRgba(S.eyeColor, dark ? .55 : .35));
@@ -789,15 +829,6 @@ function applyTheme(t) {
 }
 theme.onchange = () => { applyTheme(theme.value); saveSettings(); applyFace(); };
 $('guideReset').onclick = () => { jointGuide.value = defaultGuide(); saveSettings(); };
-[typeW, typeR].forEach(el => el.addEventListener('change', () => {
-  saveSettings();
-  const d = defaultJointWords(); jointInputs.forEach(i => { if (i.dataset.j === 'w' || i.dataset.j === 'r') i.value = d[i.dataset.j][i.dataset.d]; });
-  localStorage.setItem('aura.moves', JSON.stringify(defaultMoves())); renderMoves();
-  if (!localStorage.getItem('aura.jointGuide') || localStorage.getItem('aura.jointGuide') === '') jointGuide.value = defaultGuide();
-  saveSettings(); showToast('Joint types updated - phrases and words refreshed');
-  if (threeReady) rebuild3d();
-}));
-$('rangeReset').onclick = () => { localStorage.removeItem('aura.ranges'); const rg = jointRanges(); rangeInputs.forEach(i => i.value = rg[i.dataset.j][i.dataset.k]); saveSettings(); };
 $('jointReset').onclick = () => { const d = defaultJointWords(); jointInputs.forEach(i => i.value = d[i.dataset.j][i.dataset.d]); saveSettings(); };
 kbBtn.onclick = () => { const open = !bottom.classList.contains('open'); bottom.classList.toggle('open', open); if (open) typed.focus(); };
 
@@ -849,12 +880,41 @@ function matchMove(t) {
 // ---------- Tasks builder ----------
 const JOINT_NAMES = { b: 'Base', s: 'Shoulder', e: 'Elbow', w: 'Wrist', r: 'Roll', g: 'Gripper' };
 let tasks = [];
+function exampleTasks() {
+  const T = tiltJoint() || 'r', R = turnJoint() || 'w', sf = signFor;
+  const jm = (j, word, n) => ({ type: 'joint', j, d: sf(j, word), n });
+  const say = text => ({ type: 'say', text });
+  return [
+    { say: 'wave', reply: 'Hello there!', steps: [jm(R, 'clockwise', 35), jm(R, 'anticlockwise', 35), jm(R, 'clockwise', 35), jm(R, 'anticlockwise', 35), jm(R, 'clockwise', 35)] },
+    { say: 'dance', reply: 'That was fun!', random: true, steps: [say("Let's party!"), jm('b', 'left', 25), jm('s', 'up', 12), jm('b', 'right', 50), jm('s', 'down', 12), say('Woo!'), jm('e', 'forward', 20), jm(T, 'up', 15), jm('b', 'left', 25), jm(T, 'down', 15), say('Shake it!'), jm('e', 'back', 20), jm(R, 'clockwise', 30), jm(R, 'anticlockwise', 30)] },
+    { say: 'say yes', reply: 'Yes!', steps: [jm(T, 'down', 15), jm(T, 'up', 15), jm(T, 'down', 15), jm(T, 'up', 15)] },
+    { say: 'say no', reply: 'Nope.', steps: [jm('b', 'left', 20), jm('b', 'right', 40), jm('b', 'left', 20)] },
+    { say: 'bow', reply: 'At your service.', steps: [jm('s', 'down', 30), { type: 'wait', s: 1 }, jm('s', 'up', 30)] },
+  ];
+}
+// built-in examples are always there; a user task with the same name replaces the built-in one
+function allTasks() {
+  const mine = tasks.filter(t => t.say && (t.steps || []).length), names = new Set(mine.map(t => t.say));
+  return [...mine, ...exampleTasks().filter(t => !names.has(t.say)).map(t => ({ ...t, builtin: true }))];
+}
 function loadTasks() { tasks = S.tasks; renderTasks(); }
-function saveTasks() { try { localStorage.setItem('aura.tasks', JSON.stringify(tasks)); } catch (e) {} }
+function saveTasks() { try { localStorage.setItem('aura.tasks', JSON.stringify(tasks)); } catch (e) {} updateSummaries(); }
 function renderTasks() {
   tasksBox.innerHTML = '';
-  if (!tasks.length) { tasksBox.innerHTML = '<p class="hint">No tasks yet. Tap "+ New task".</p>'; return; }
+  if (!tasks.length) tasksBox.innerHTML = '<p class="hint">No tasks of your own yet. Tap "+ New task", or copy a built-in one below and change it.</p>';
   tasks.forEach((t, ti) => tasksBox.appendChild(renderTask(t, ti)));
+  // built-ins, in their own box
+  const box = document.createElement('div'); box.className = 'builtins';
+  box.innerHTML = '<div class="bt">Built-in examples <small>always available · copy one to edit it</small></div>';
+  const mine = new Set(tasks.map(t => t.say));
+  exampleTasks().forEach(t => {
+    const row = document.createElement('div'); row.className = 'brow';
+    row.innerHTML = `<b>${t.say}</b><span>${t.steps.filter(x => x.type !== 'say' && x.type !== 'wait').length} moves${t.random ? ', shuffled' : ''}${t.reply ? ' · "' + t.reply + '"' : ''}</span><button>${mine.has(t.say) ? 'replaced by yours' : 'Copy'}</button>`;
+    const b = row.querySelector('button'); b.disabled = mine.has(t.say);
+    b.onclick = () => { tasks.push(JSON.parse(JSON.stringify(t))); saveTasks(); renderTasks(); };
+    box.appendChild(row);
+  });
+  tasksBox.appendChild(box);
 }
 function dirOptions(j) {
   const jw = S.jointWords[j] || {}; const p = wordList(jw['+'])[0] || 'plus', m = wordList(jw['-'])[0] || 'minus';
@@ -867,6 +927,7 @@ function renderTask(t, ti) {
       <label>You say<input type="text" class="tsay" placeholder="e.g. tidy up" autocapitalize="none"></label>
       <label>It replies (optional)<input type="text" class="treply" placeholder="All tidy!"></label>
       <button class="x" title="delete task">×</button>
+      <label style="grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:13px;margin-top:6px"><input type="checkbox" class="trand" style="width:auto;margin:0"> shuffle the moves each time (good for a dance)</label>
     </div>
     <div class="steps"></div>
     <div class="addSteps">
@@ -877,6 +938,7 @@ function renderTask(t, ti) {
   card.querySelector('.tsay').value = t.say || ''; card.querySelector('.treply').value = t.reply || '';
   card.querySelector('.tsay').oninput = e => { t.say = e.target.value.trim().toLowerCase(); saveTasks(); };
   card.querySelector('.treply').oninput = e => { t.reply = e.target.value.trim(); saveTasks(); };
+  card.querySelector('.trand').checked = !!t.random; card.querySelector('.trand').onchange = e => { t.random = e.target.checked; saveTasks(); };
   card.querySelector('.head .x').onclick = () => { if (confirm('Delete task "' + (t.say || 'untitled') + '"?')) { tasks.splice(ti, 1); saveTasks(); renderTasks(); } };
   const stepsEl = card.querySelector('.steps');
   (t.steps || []).forEach((st, si) => stepsEl.appendChild(renderStep(t, st, si)));
@@ -903,7 +965,7 @@ function renderStep(t, st, si) {
   const row = document.createElement('div'); row.className = 'step';
   const n = `<span class="n">${si + 1}.</span>`;
   const poseOpts = (poseNames.length ? poseNames : ['home']).map(p => `<option value="${p}">${p}</option>`).join('');
-  const taskOpts = tasks.filter(x => x !== t && x.say).map(x => `<option value="${x.say}">${x.say}</option>`).join('');
+  const taskOpts = allTasks().filter(x => x.say !== t.say).map(x => `<option value="${x.say}">${x.say}</option>`).join('');
   const jointOpts = Object.entries(JOINT_NAMES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
   if (st.type === 'joint') row.innerHTML = n + `<select class="j">${jointOpts}</select><select class="d">${dirOptions(st.j)}</select><input class="num" type="number" min="0" max="180" value="${st.n}"><span class="n">°</span>`;
   else if (st.type === 'pose') row.innerHTML = n + `<span class="n" style="width:auto">go to</span><select class="p">${poseOpts}</select>`;
@@ -925,6 +987,7 @@ function renderStep(t, st, si) {
 }
 addTaskBtn.onclick = () => { tasks.push({ say: '', reply: '', steps: [] }); saveTasks(); renderTasks(); tasksBox.lastChild.querySelector('.tsay').focus(); };
 
+
 // Keep any joint command inside the app's limits for that joint
 function limitCmd(cmd) {
   const m = String(cmd).match(/^([bsewrg]) ([+-]?)(\d+)$/); if (!m) return cmd;
@@ -939,46 +1002,132 @@ function limitCmd(cmd) {
 // Turn a task into commands. "wait:2000" and "say:text" are handled by the runner, not the arm.
 function compileTask(t, depth = 0) {
   const out = [];
-  for (const st of t.steps || []) {
+  let steps = t.steps || [];
+  if (t.random) {                                   // shuffle the moves, keep the spoken lines where they are
+    const moves = steps.filter(x => x.type !== 'say' && x.type !== 'wait');
+    for (let i = moves.length - 1; i > 0; i--) { const k = Math.floor(Math.random() * (i + 1)); [moves[i], moves[k]] = [moves[k], moves[i]]; }
+    let mi = 0; steps = steps.map(x => (x.type === 'say' || x.type === 'wait') ? x : moves[mi++]);
+  }
+  for (const st of steps) {
     if (st.type === 'joint') out.push(st.d === '=' ? `${st.j} ${st.n}` : `${st.j} ${st.d}${servoAmount(st.j, st.n)}`);
     else if (st.type === 'pose') out.push('go ' + st.name);
     else if (st.type === 'grip') out.push(st.v);
     else if (st.type === 'wait') out.push('wait:' + Math.round((st.s || 0) * 1000));
     else if (st.type === 'say' && st.text) out.push('say:' + st.text);
     else if (st.type === 'abs') out.push('pose ' + ['b', 's', 'e', 'w', 'r', 'g'].map(k => st.a[k] !== undefined ? st.a[k] : 90).join(' '));
-    else if (st.type === 'task' && depth < 4) { const sub = tasks.find(x => x.say === st.name); if (sub) out.push(...compileTask(sub, depth + 1)); }
+    else if (st.type === 'task' && depth < 4) { const sub = allTasks().find(x => x.say === st.name); if (sub) out.push(...compileTask(sub, depth + 1)); }
   }
   return out;
 }
 
+function updateSummaries() {
+  try {
+    $('armSum').textContent = rxChar ? 'connected' : 'not connected';
+    $('aiSum').textContent = S.ai ? (S.apiKey ? 'on' : 'on, no key') : 'off';
+    $('taskSum').textContent = allTasks().length + ' tasks';
+  } catch (e) {}
+}
 function note(el, msg, cls) { el.textContent = msg; el.className = 'note' + (cls ? ' ' + cls : ''); }
-try { loadSettingsUI(); loadTasks(); } catch (e) {}
-try { const u = sessionStorage.getItem('aura.updatedTo'); if (u) { sessionStorage.removeItem('aura.updatedTo'); setTimeout(() => showToast('Updated to ' + u, 3000), 600); } } catch (e) {}
+
 saveBtn.onclick = saveSettings;
 settings.querySelector('.body').addEventListener('change', e => { if (e.target.matches('input, select, textarea')) saveSettings(); });
-gear.onclick = () => { if (!listening) settings.classList.add('open'); };
+gear.onclick = () => { if (!listening) settings.classList.add('open'); else showToast('Stop listening first to open Settings'); };
+$('toHome').onclick = () => { settings.classList.remove('open'); showMode('three'); };
+$('toTap').onclick = () => { settings.classList.remove('open'); renderTapGrid(); tapSheet.classList.add('open'); };
+try { $('verLabel').textContent = document.getElementById('ver').textContent; } catch (e) {}
 closeSettings.onclick = () => settings.classList.remove('open');
 logBtn.onclick = () => logSheet.classList.add('open');
+// ---- "What can I say?" quick reference ----
+const saySheet = $('saySheet'), sayBody = $('sayBody');
+$('sayBtn').onclick = () => { renderSay(); saySheet.classList.add('open'); };
+$('closeSay').onclick = () => saySheet.classList.remove('open');
+function chipRow(items, cls) {
+  const d = document.createElement('div'); d.className = 'chips';
+  items.forEach(txt => { const b = document.createElement('button'); if (cls) b.className = cls; b.textContent = txt; b.onclick = () => { saySheet.classList.remove('open'); if (listening && !awake) wakeUp(); handleInput(txt, true); }; d.appendChild(b); });
+  return d;
+}
+function sayGroup(title, sub, items, cls) {
+  const g = document.createElement('div'); g.className = 'sayGrp';
+  g.innerHTML = `<h3>${title}</h3>` + (sub ? `<p>${sub}</p>` : '');
+  g.appendChild(chipRow(items, cls)); return g;
+}
+function renderSay() {
+  sayBody.innerHTML = '';
+  const T = allTasks();
+  sayBody.appendChild(sayGroup('Wake it up', `Say the name first. "${S.wakeWord}" alone, or "${S.wakeWord}, wave".`, [S.wakeWord]));
+  sayBody.appendChild(sayGroup('Tasks', 'Tap one to run it. Say two in one sentence to chain them.', T.map(t => t.say), 'b'));
+  sayBody.appendChild(sayGroup('Movement phrases', 'Add "a little", "a lot", or a number: "look down a little", "turn left 20".', S.moves.map(m => m.say)));
+  const jw = S.jointWords;
+  const jointEx = ['shoulder ' + jw.s['-'].split(',')[0].trim(), 'base ' + jw.b['+'].split(',')[0].trim(), 'elbow ' + jw.e['+'].split(',')[0].trim() + ' 20', 'wrist ' + jw.w['+'].split(',')[0].trim() + ' a little', 'roll ' + jw.r['-'].split(',')[0].trim()];
+  sayBody.appendChild(sayGroup('Joint by joint', 'Any joint + a direction word + optionally an amount.', jointEx));
+  if (poseNames.length) sayBody.appendChild(sayGroup('Saved poses', 'Say the pose name, or "go" + name.', poseNames));
+  sayBody.appendChild(sayGroup('Gripper and control', '', ['open', 'close', 'home', 'stop', 'go to sleep', 'hello', 'thank you']));
+  if (S.ai) sayBody.appendChild(sayGroup('With AI on', 'Anything else in plain words - it works out the moves, or just chats back.', ['bend the elbow and open the gripper', 'how are you?', 'tell me a joke']));
+}
+// ---- rotating hints under the status text ----
+let hintTimer = null, hintIdx = 0;
+function hintPool() {
+  const T = allTasks().map(t => t.say), M = S.moves.map(m => m.say);
+  const pool = [];
+  T.forEach(t => pool.push(`Try <b>"${t}"</b>`));
+  M.slice(0, 8).forEach(m => pool.push(`Try <b>"${m} a little"</b>`));
+  pool.push(`Try <b>"${(T[0] || 'wave')} and ${(T[1] || 'bow')}"</b> to chain two tasks`, `Say <b>"go to sleep"</b> when you're done`);
+  return pool;
+}
+function tickHint() {
+  const el = $('hint');
+  if (!listening) { el.innerHTML = `Tap the mic, then say <b>"${S.wakeWord}"</b>`; return; }
+  if (!awake) { el.innerHTML = `Say <b>"${S.wakeWord}"</b> to wake me`; return; }
+  if (running || speaking) return;
+  const pool = hintPool(); el.innerHTML = pool[hintIdx++ % pool.length];
+}
+setInterval(tickHint, 6000); setTimeout(tickHint, 800);
 // ---- modes ----
 function showMode(which) {
+  if (which === 'home') which = 'three';                       // the 3D setup page is the first page now
   [homeScreen, chatMode, threeMode].forEach(m => m.classList.remove('show'));
-  ({ home: homeScreen, chat: chatMode, three: threeMode })[which].classList.add('show');
+  ({ chat: chatMode, three: threeMode })[which].classList.add('show');
   if (which === 'three') enter3d();
   if (which !== 'chat' && listening) stopListening();
+  try { localStorage.setItem('aura.lastMode', which); } catch (e) {}
 }
-$('goChat').onclick = () => showMode('chat');
-$('go3d').onclick = () => showMode('three');
-$('backChat').onclick = () => showMode('home');
-$('back3d').onclick = () => showMode('home');
+$('toChat').onclick = () => showMode('chat');
+$('to3d').onclick = () => showMode('three');
+$('gear3d').onclick = () => settings.classList.add('open');
 $('homeConnect').onclick = () => rxChar ? device.gatt.disconnect() : connect();
 $('homeSettings').onclick = () => settings.classList.add('open');
+
+// ---- "Start here" stepper on the 3D page ----
+function calibCount() { const c = calib3(); return J3.filter(j => c[j] && c[j].plus).length; }
+function updateStartHere() {
+  const sh = $('startHere'); if (!sh) return;
+  const st = { connect: !!rxChar, read: !!armPose, calib: calibCount() === J3.length, test: localStorage.getItem('aura.tested') === '1' };
+  let current = null;
+  [...$('shSteps').children].forEach(li => {
+    const k = li.dataset.step, ok = k === 'chat' ? false : st[k];
+    li.classList.toggle('ok', !!ok);
+    if (!ok && !current) { current = k; li.classList.add('now'); } else li.classList.remove('now');
+  });
+  $('shCalibSub').textContent = calibCount() ? `${calibCount()} of ${J3.length} joints done.` : 'Match the model to what you see. Three quick steps per joint.';
+  $('shConnect').textContent = rxChar ? 'Connected' : 'Connect'; $('shConnect').disabled = !!rxChar;
+  const allDone = st.connect && st.read && st.calib && st.test;
+  sh.classList.toggle('done', allDone);
+  $('shSum').textContent = allDone ? 'All set - the chat mode knows your arm.' : (rxChar ? '' : 'Connect first.');
+  if (allDone && !sh.dataset.autoHid) { sh.classList.add('collapsed'); $('shToggle').textContent = 'show'; sh.dataset.autoHid = '1'; }
+}
+$('shToggle').onclick = () => { const sh = $('startHere'); sh.classList.toggle('collapsed'); $('shToggle').textContent = sh.classList.contains('collapsed') ? 'show' : 'hide'; };
+$('shConnect').onclick = () => connect();
+$('shRead').onclick = () => read3d();
+$('shCalib').onclick = () => startCalib();
+$('shTest').onclick = () => apply3d();
+$('shChat').onclick = () => showMode('chat');
 tapBtn.onclick = () => { renderTapGrid(); tapSheet.classList.add('open'); };
 closeTap.onclick = () => tapSheet.classList.remove('open');
 function renderTapGrid() {
   tapGrid.innerHTML = '';
   const mk = (label, cls, fn) => { const b = document.createElement('button'); b.textContent = label; if (cls) b.className = cls; b.onclick = () => { chirp('tap'); fn(); }; tapGrid.appendChild(b); return b; };
   mk('STOP', 'stop', () => { stopEverything(); setDoing('Stopped.'); });
-  const usable = tasks.filter(t => t.say && (t.steps || []).length);
+  const usable = allTasks();
   if (!usable.length) { const p = document.createElement('p'); p.className = 'hint'; p.style.gridColumn = '1 / -1'; p.textContent = 'No tasks yet. Build some in Settings → Tasks and they appear here as buttons.'; tapGrid.appendChild(p); }
   usable.forEach(t => mk(t.say, '', () => handleInput(t.say, true)));
   mk('Home', 'sys', () => handleInput('home', true));
@@ -1054,6 +1203,7 @@ const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e', NUS_RX = '6e400002-b5a3-f393
 let device = null, rxChar = null, inbox = '';
 const enc = new TextEncoder(), dec = new TextDecoder();
 function setLink(on, text) {
+  updateSummaries(); setTimeout(updateStartHere, 0);
   pill.textContent = text; pill.classList.toggle('on', on); pill3d.textContent = text; pill3d.classList.toggle('on', on);
   connectBtn.textContent = on ? 'Disconnect' : 'Connect to AURA-ARM'; $('homeConnect').textContent = on ? 'Disconnect' : 'Connect to AURA-ARM';
   note(homeNote, on ? 'Arm connected.' : '', on ? 'ok' : '');
@@ -1245,7 +1395,7 @@ function voskGrammar() {
    'base shoulder elbow wrist roll gripper hand claw open close home relax stop halt wait cancel freeze',
    'hello hi hey thanks thank you good morning evening night bye goodbye sleep who are what is your name',
    'can could would you please now me it and'].forEach(add);
-  tasks.forEach(t => { if (t.say) { add(t.say); words.add(t.say.toLowerCase()); } });
+  allTasks().forEach(t => { add(t.say); words.add(t.say.toLowerCase()); });
   return JSON.stringify([...words]);
 }
 
@@ -1332,11 +1482,11 @@ function micResume(ms) {
 function voskFlush() { try { voskRec && voskRec.retrieveFinalResult(); voskFree && voskFree.retrieveFinalResult(); } catch (e) {} pendG = pendF = null; clearTimeout(decideTimer); decideTimer = null; }
 let awake = false, awakeTimer = null;
 function goStandby(quiet) {
-  awake = false; clearTimeout(awakeTimer); updateEars();
+  awake = false; clearTimeout(awakeTimer); updateEars(); setTimeout(tickHint, 50);
   if (listening) { setFace('standby'); setDoing(`Say "${S.wakeWord}" to wake me`); if (!quiet) say('Going to sleep'); }
 }
 function wakeUp() {
-  awake = true; updateEars(); setFace('listening'); setDoing('Awake. What should I do?'); touchAwake();
+  awake = true; updateEars(); setFace('listening'); setTimeout(tickHint, 50); setDoing('Awake. What should I do?'); touchAwake();
 }
 function touchAwake() { clearTimeout(awakeTimer); awakeTimer = setTimeout(() => goStandby(true), S.awakeSecs * 1000); }
 
@@ -1458,14 +1608,14 @@ function startListening() {
   if (S.engine !== 'vosk' && !rec) { setDoing('This browser has no speech recognition. Use Chrome on Android.', true); return; }
   listening = true; if (rec) rec.lang = S.lang; startRec();
   beep(880, 120); setTimeout(() => beep(1320, 160), 140);            // "I'm on"
-  power.textContent = 'Stop'; power.className = 'on'; gear.disabled = true; settings.classList.remove('open');
+  power.className = 'on'; settings.classList.remove('open');
   setHeard(''); goStandby(true);
 }
 function stopListening() {
   listening = false; awake = false; clearTimeout(awakeTimer); try { rec && rec.stop(); } catch (e) {}
   if (S.engine === 'vosk') voskStop();
-  power.textContent = 'Start'; power.className = 'off'; gear.disabled = false;
-  setFace('off'); setDoing('Stopped. Tap Start to listen again.');
+  power.className = 'off';
+  setFace('off'); setDoing('Tap the mic to listen.'); setTimeout(tickHint, 50);
 }
 power.onclick = () => { if (running) stopEverything(); listening ? stopListening() : startListening(); };
 
@@ -1591,7 +1741,7 @@ function findEmbedded(part) {
   }
   return null;
 }
-function matchTask(t) { return fuzzyPick(t, tasks.filter(x => x.say && (x.steps || []).length), x => x.say); }
+function matchTask(t) { return fuzzyPick(t, allTasks(), x => x.say); }
 function resolveGroup(part) {
   part = part.trim().replace(POLITE, '').replace(/\s+(?:for me|now|please)\s*$/, '').trim();
   let tk = matchTask(part);
@@ -1713,7 +1863,7 @@ async function claude(system, user) {
 }
 function aiSystem() {
   const cur = Object.keys(angles).length ? Object.entries(angles).map(([k, v]) => k + ' ' + v).join(', ') : 'unknown';
-  const sc = tasks.filter(t => t.say).map(t => `  "${t.say}"  ->  ${compileTask(t).join(', ')}`).join('\n');
+  const sc = allTasks().map(t => `  "${t.say}"  ->  ${compileTask(t).join(', ')}`).join('\n');
   return `You are ${S.wakeWord}, a small six-servo desk robot arm with a big personality: playful, witty, warm, a little cheeky. Keep every spoken line to one short sentence (under 15 words). Never sound like a manual.
 ${S.persona.trim() ? 'Owner says about your personality: ' + S.persona.trim() + '\n' : ''}
 HOW YOU MOVE
@@ -1997,7 +2147,8 @@ async function read3d() {
   armPose = { ...angles };
   J3.forEach(j => { if (armPose[j] !== undefined) pose3[j] = toModel(j, armPose[j]); });
   selectJoint(sel3); setJoint(sel3, pose3[sel3]);
-  $('threeStatus').textContent = calibrated() ? 'Synced with the arm.' : 'Synced. Tap "Calibrate model" once so the model matches the real arm.';
+  $('threeStatus').textContent = calibrated() ? 'Synced with the arm.' : 'Synced. Now calibrate so the model matches the real arm.';
+  updateStartHere();
 }
 async function apply3d() {
   if (!rxChar) { $('threeStatus').textContent = 'Not connected.'; return; }
@@ -2014,6 +2165,7 @@ async function apply3d() {
     J3.forEach(j => { if (armPose[j] !== undefined) pose3[j] = toModel(j, armPose[j]); });
     setJoint(sel3, pose3[sel3]);
     $('threeStatus').textContent = 'Done. The arm is there.';
+    localStorage.setItem('aura.tested', '1'); updateStartHere();
   } catch (e) { stopWhirr(); $('threeStatus').textContent = 'Send failed: ' + e.message; }
   $('applyBtn').disabled = false;
 }
@@ -2023,7 +2175,7 @@ function calibrated() { return localStorage.getItem('aura.calib3') !== null; }
 let wiz = null;
 const wizard = () => $('wizard'), wizText = () => $('wizText');
 function wizShow(html) { wizard().hidden = false; wizText().innerHTML = html; }
-function wizEnd(msg) { wiz = null; wizard().hidden = true; $('threeStatus').textContent = msg || ''; $('calibBtn').disabled = false; }
+function wizEnd(msg) { wiz = null; wizard().hidden = true; $('threeStatus').textContent = msg || ''; $('calibBtn').disabled = false; updateStartHere(); }
 async function startCalib() {
   if (!rxChar) { $('threeStatus').textContent = 'Connect first.'; return; }
   await readAngles(); if (!Object.keys(angles).length) { $('threeStatus').textContent = 'The arm did not answer.'; return; }
@@ -2033,7 +2185,7 @@ async function startCalib() {
   await wizStep();
 }
 async function wizStep() {
-  const j = J3[wiz.i]; selectJoint(j);
+  const j = J3[wiz.i]; selectJoint(j); updateStartHere();
   if (wiz.phase === 'a') {
     // put the real joint at a known reference (90, or the nearest allowed angle)
     const ref = clampJoint(j, 90);
@@ -2046,11 +2198,20 @@ async function wizStep() {
   } else if (wiz.phase === 'b') {
     wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 3<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
   } else {
-    const pairs = pairsFor(j);
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
-      <button id="dirA">${pairs[0][0]}</button><button id="dirB">${pairs[1][0]}</button></div>`);
     $('wizNext').disabled = true;
-    $('dirA').onclick = () => wizDir(pairs[0][0]); $('dirB').onclick = () => wizDir(pairs[1][0]);
+    if (j === 'w' || j === 'r') {
+      // these joints may tilt OR turn: the answer tells us both the direction and the type
+      wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
+        <button id="dirUp">up</button><button id="dirDown">down</button><button id="dirCw">clockwise</button><button id="dirCcw">anticlockwise</button></div>`);
+      const pick = (type, word) => { localStorage.setItem(j === 'w' ? 'aura.typeW' : 'aura.typeR', type); (j === 'w' ? typeW : typeR).value = type; wizDir(word); };
+      $('dirUp').onclick = () => pick('tilt', 'up'); $('dirDown').onclick = () => pick('tilt', 'down');
+      $('dirCw').onclick = () => pick('rotate', 'clockwise'); $('dirCcw').onclick = () => pick('rotate', 'anticlockwise');
+    } else {
+      const pairs = pairsFor(j);
+      wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
+        <button id="dirA">${pairs[0][0]}</button><button id="dirB">${pairs[1][0]}</button></div>`);
+      $('dirA').onclick = () => wizDir(pairs[0][0]); $('dirB').onclick = () => wizDir(pairs[1][0]);
+    }
   }
 }
 async function wizDir(word) {
@@ -2093,7 +2254,8 @@ async function wizFinishJoint() {
     wiz.i++; wiz.phase = 'a';
     if (wiz.i >= J3.length) {
       applyCalibToChat();
-      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j}: + is ${plusWord(j)}`).join(', ') + '. Chat mode words and phrases updated.'); chirp('done'); return;
+      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j}: + is ${plusWord(j)}`).join(', ') + '. Chat mode words and phrases updated.'); chirp('done');
+      rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); return;
     }
     wizStep();
   }
@@ -2138,12 +2300,19 @@ function enter3d() {
     $('nudgeUp').onclick = () => setJoint(sel3, pose3[sel3] + 5);
     $('readBtn').onclick = read3d;
     $('applyBtn').onclick = apply3d;
-    $('homePoseBtn').onclick = () => { pose3 = { b: 90, s: 90, e: 90, w: 90, r: 90, g: pose3.g }; J3.forEach(j => pose3[j] = clampJoint(j, pose3[j])); setJoint(sel3, pose3[sel3]); };
     selectJoint('b');
   }
   setTimeout(() => T.resize && T.resize(), 50);
   if (rxChar) read3d();
+  updateStartHere();
 }
+
+// ---------- initial load (last, so every function above is ready) ----------
+try { loadSettingsUI(); } catch (e) { console.error('settings load', e); logLine('[load] settings: ' + e.message); }
+try { loadTasks(); } catch (e) { console.error('tasks load', e); logLine('[load] tasks: ' + e.message); }
+try { applyFace(); updateSummaries(); } catch (e) {}
+try { const u = sessionStorage.getItem('aura.updatedTo'); if (u) { sessionStorage.removeItem('aura.updatedTo'); setTimeout(() => showToast('Updated to ' + u, 3000), 600); } } catch (e) {}
+try { showMode(localStorage.getItem('aura.lastMode') === 'chat' ? 'chat' : 'three'); } catch (e) { showMode('three'); }
 </script>
 </body>
 </html>
