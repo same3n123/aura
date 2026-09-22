@@ -65,19 +65,24 @@
   #three canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   #threeHint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; letter-spacing: .1em; text-transform: uppercase; }
   #threePanel { padding: 10px 14px calc(14px + var(--sab)); background: var(--bg); border-top: 1px solid var(--line); max-height: 62vh; overflow: auto; }
-  #startHere { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; }
-  #startHere.done { border-color: rgba(78,212,162,.5); }
-  .shHead { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-  .shHead span { color: var(--muted); font-size: 12.5px; flex: 1; }
-  .shHead button { padding: 4px 8px; font-size: 12px; }
-  #shSteps { list-style: none; margin: 8px 0 0; padding: 0; }
-  #shSteps li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); }
-  #shSteps li div { flex: 1; min-width: 0; } #shSteps li b { font-size: 14px; display: block; } #shSteps li small { color: var(--muted); font-size: 12px; }
-  #shSteps li button { padding: 8px 12px; font-size: 13px; }
-  .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #05261A; }
-  li.ok .tick { background: var(--ok); border-color: var(--ok); } li.ok .tick::after { content: '✓'; }
-  li.now .tick { border-color: var(--act); box-shadow: 0 0 0 3px rgba(255,138,61,.25); }
-  #startHere.collapsed #shSteps { display: none; }
+  #flow { background: var(--panel); border: 1px solid var(--eye); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+  #flow.done { border-color: rgba(78,212,162,.5); }
+  #flow.collapsed #fBody, #flow.collapsed .fBtns { display: none; }
+  .fHead { display: flex; align-items: center; gap: 10px; }
+  .fHead #fStep { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .fHead b { font-size: 16px; flex: 1; }
+  .fHead button { padding: 4px 8px; font-size: 12px; }
+  #fBody { font-size: 14px; line-height: 1.45; margin-top: 8px; color: var(--ink); }
+  #fBody small { color: var(--muted); display: block; margin-top: 4px; }
+  #fBody .dirs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  #fBody .dirs button { padding: 12px; font-size: 15px; }
+  .fBtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .fBtns button { padding: 12px 8px; font-size: 14px; }
+  .fBtns button[hidden] { display: none; }
+  .fBtns.two { grid-template-columns: 1fr 1fr; }
+  #flow .prog { display: flex; gap: 4px; margin-top: 8px; }
+  #flow .prog i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+  #flow .prog i.on { background: var(--eye); } #flow .prog i.now { background: var(--act); }
   #jointChips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
   #jointChips button { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
   #jointChips button.on { border-color: var(--eye); color: var(--eye); }
@@ -351,15 +356,10 @@
   </div>
   <div id="three"><div id="threeHint">drag to orbit · pinch to zoom · tap a part</div></div>
   <div id="threePanel">
-    <div id="startHere">
-      <div class="shHead"><b>Start here</b><span id="shSum"></span><button id="shToggle" class="ghost">hide</button></div>
-      <ol id="shSteps">
-        <li data-step="connect"><span class="tick"></span><div><b>Connect the arm</b><small>Bluetooth to AURA-ARM.</small></div><button id="shConnect">Connect</button></li>
-        <li data-step="read"><span class="tick"></span><div><b>Read the arm</b><small>The model copies the arm's current pose.</small></div><button id="shRead">Read</button></li>
-        <li data-step="calib"><span class="tick"></span><div><b>Calibrate each joint</b><small id="shCalibSub">Match the model to what you see. Three quick steps per joint.</small></div><button id="shCalib">Calibrate</button></li>
-        <li data-step="test"><span class="tick"></span><div><b>Test a move</b><small>Change a joint below, then Send to arm.</small></div><button id="shTest">Send</button></li>
-        <li data-step="chat"><span class="tick"></span><div><b>Go to chat mode</b><small>Words and phrases now follow what you calibrated.</small></div><button id="shChat" class="act">Chat</button></li>
-      </ol>
+    <div id="flow">
+      <div class="fHead"><span id="fStep">Step 1 of 4</span><b id="fTitle">Connect</b><button id="fHide" class="ghost">hide</button></div>
+      <div id="fBody"></div>
+      <div class="fBtns"><button id="fBack">Back</button><button id="fSkip">Skip</button><button id="fNext" class="act">Next</button></div>
     </div>
     <div id="jointChips"></div>
     <div class="sliderRow">
@@ -373,11 +373,8 @@
       <button id="applyBtn" class="act">Send to arm</button>
     </div>
     <div id="threeStatus">Connect, then Read from arm.</div>
-    <div class="row2" style="margin-top:8px"><button id="calibBtn">Calibrate model</button><button id="adjustBtn">Adjust this joint</button></div>
-    <div id="wizard" hidden>
-      <div id="wizText"></div>
-      <div class="row2" style="margin-top:8px"><button id="wizCancel">Cancel</button><button id="wizNext" class="act">Next</button></div>
-    </div>
+    <div class="row2" style="margin-top:8px"><button id="calibBtn">Redo setup</button><button id="adjustBtn">Adjust this joint</button></div>
+    <div id="wizard" hidden><div id="wizText"></div><div class="row2" style="margin-top:8px"><button id="wizCancel">Cancel</button><button id="wizNext" class="act">Done</button></div></div>
   </div>
 </div>
 
@@ -393,7 +390,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v5.5</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v5.6</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -1097,30 +1094,138 @@ $('gear3d').onclick = () => settings.classList.add('open');
 $('homeConnect').onclick = () => rxChar ? device.gatt.disconnect() : connect();
 $('homeSettings').onclick = () => settings.classList.add('open');
 
-// ---- "Start here" stepper on the 3D page ----
+// ============================================================
+//  SETUP FLOW — one step at a time on the 3D page
+//  connect -> calibrate (one joint at a time) -> test -> chat
+// ============================================================
+const flow = { step: 'connect', ji: 0, phase: 'a', busy: false };
+const STEPS = ['connect', 'calib', 'test', 'chat'];
+const fBody = () => $('fBody'), fNext = () => $('fNext'), fBack = () => $('fBack'), fSkip = () => $('fSkip');
 function calibCount() { const c = calib3(); return J3.filter(j => c[j] && c[j].plus).length; }
-function updateStartHere() {
-  const sh = $('startHere'); if (!sh) return;
-  const st = { connect: !!rxChar, read: !!armPose, calib: calibCount() === J3.length, test: localStorage.getItem('aura.tested') === '1' };
-  let current = null;
-  [...$('shSteps').children].forEach(li => {
-    const k = li.dataset.step, ok = k === 'chat' ? false : st[k];
-    li.classList.toggle('ok', !!ok);
-    if (!ok && !current) { current = k; li.classList.add('now'); } else li.classList.remove('now');
-  });
-  $('shCalibSub').textContent = calibCount() ? `${calibCount()} of ${J3.length} joints done.` : 'Match the model to what you see. Three quick steps per joint.';
-  $('shConnect').textContent = rxChar ? 'Connected' : 'Connect'; $('shConnect').disabled = !!rxChar;
-  const allDone = st.connect && st.read && st.calib && st.test;
-  sh.classList.toggle('done', allDone);
-  $('shSum').textContent = allDone ? 'All set - the chat mode knows your arm.' : (rxChar ? '' : 'Connect first.');
-  if (allDone && !sh.dataset.autoHid) { sh.classList.add('collapsed'); $('shToggle').textContent = 'show'; sh.dataset.autoHid = '1'; }
+function calibDoneAll() { return calibCount() === J3.length; }
+function setupDone() { return localStorage.getItem('aura.setupDone') === '1'; }
+
+function renderFlow() {
+  const f = $('flow'); if (!f) return;
+  const idx = STEPS.indexOf(flow.step);
+  $('fStep').textContent = setupDone() && flow.step === 'done' ? 'Setup' : `Step ${idx + 1} of ${STEPS.length}`;
+  fBack().hidden = fSkip().hidden = fNext().hidden = false; fNext().disabled = flow.busy;
+  const prog = (n, of, cur) => `<div class="prog">${Array.from({ length: of }, (_, i) => `<i class="${i < n ? 'on' : ''}${i === cur ? ' now' : ''}"></i>`).join('')}</div>`;
+  f.classList.toggle('done', flow.step === 'done');
+
+  if (flow.step === 'connect') {
+    $('fTitle').textContent = 'Connect the arm';
+    fBody().innerHTML = rxChar ? 'Connected. The model has copied the arm\'s pose.<small>Tap Next to calibrate.</small>'
+                               : 'Turn the arm on, then tap Connect and pick <b>AURA-ARM</b>.<small>Your phone\'s Bluetooth must be on.</small>';
+    fBack().hidden = true; fSkip().hidden = true; fNext().textContent = rxChar ? 'Next' : 'Connect';
+  }
+  else if (flow.step === 'calib') {
+    const j = J3[flow.ji], name = JOINT_LABEL[j], c = calib3()[j];
+    $('fTitle').textContent = `Calibrate · ${name}`;
+    let body = '';
+    if (flow.phase === 'a') body = `<b>1 · Match.</b> The real ${name.toLowerCase()} is at ${flow.ref !== undefined ? flow.ref + '°' : 'its reference'}. Drag the slider below until the model\'s ${name.toLowerCase()} looks the same as the real one.<small>Roughly is fine.</small>`;
+    else if (flow.phase === 'b') body = `<b>2 · Match again.</b> The arm just moved this joint by ${flow.delta > 0 ? '+' : ''}${flow.delta}°. Drag the slider until the model matches again.`;
+    else if (flow.phase === 'c') {
+      const opts = (j === 'w' || j === 'r') ? [['up', 'tilt'], ['down', 'tilt'], ['clockwise', 'rotate'], ['anticlockwise', 'rotate']] : pairsFor(j).map(p => [p[0], null]);
+      body = `<b>3 · Which way did it move?</b> Watch the real ${name.toLowerCase()}: when the arm moved it by ${flow.delta > 0 ? '+' : ''}${flow.delta}°, which way did it go?
+        <div class="dirs">${opts.map(o => `<button data-w="${o[0]}" data-t="${o[1] || ''}">${o[0]}</button>`).join('')}</div>`;
+    }
+    else if (flow.phase === 'moving') body = `Moving the ${name.toLowerCase()}…`;
+    fBody().innerHTML = body + prog(flow.ji, J3.length, flow.ji) + `<small>${name} · joint ${flow.ji + 1} of ${J3.length}${c && c.plus ? ' · already calibrated, redoing' : ''}</small>`;
+    fBody().querySelectorAll('.dirs button').forEach(b => b.onclick = () => flowDir(b.dataset.w, b.dataset.t));
+    fNext().textContent = 'Next'; fNext().hidden = flow.phase === 'c' || flow.phase === 'moving';
+    fSkip().hidden = flow.phase !== 'a'; fSkip().textContent = 'Skip joint';
+    fBack().hidden = flow.phase === 'moving';
+  }
+  else if (flow.step === 'test') {
+    $('fTitle').textContent = 'Test a move';
+    fBody().innerHTML = `Pick a joint below, move the slider a little, then tap <b>Send</b>. The real arm should go where the model is.<small>If a joint goes the wrong way, tap Back and redo that joint.</small>`;
+    fNext().textContent = 'Send'; fSkip().textContent = 'Skip';
+  }
+  else if (flow.step === 'chat') {
+    $('fTitle').textContent = 'All set';
+    fBody().innerHTML = `The chat mode now knows how your arm moves: words, phrases and amounts follow what you just calibrated.<small>You can come back here any time from the cube icon.</small>`;
+    fNext().textContent = 'Open chat mode'; fSkip().hidden = true;
+  }
+  else if (flow.step === 'done') {
+    $('fTitle').textContent = 'Setup complete';
+    fBody().innerHTML = `Calibrated ${calibCount()} of ${J3.length} joints.<small>Use the slider and Send to test poses. "Redo setup" runs the steps again.</small>`;
+    fBack().hidden = fSkip().hidden = true; fNext().textContent = 'Chat mode';
+  }
+  const two = [...document.querySelectorAll('.fBtns button')].filter(b => !b.hidden).length === 2;
+  $('flow').querySelector('.fBtns').classList.toggle('two', two);
 }
-$('shToggle').onclick = () => { const sh = $('startHere'); sh.classList.toggle('collapsed'); $('shToggle').textContent = sh.classList.contains('collapsed') ? 'show' : 'hide'; };
-$('shConnect').onclick = () => connect();
-$('shRead').onclick = () => read3d();
-$('shCalib').onclick = () => startCalib();
-$('shTest').onclick = () => apply3d();
-$('shChat').onclick = () => showMode('chat');
+
+async function flowNext() {
+  if (flow.busy) return;
+  if (flow.step === 'connect') { if (!rxChar) { await connect(); if (!rxChar) return; await read3d(); } flow.step = 'calib'; flow.ji = 0; flow.phase = 'a'; wiz = {}; await calibBegin(); return; }
+  if (flow.step === 'calib') {
+    const j = J3[flow.ji];
+    if (flow.phase === 'a') {
+      flow.r1 = flow.ref; flow.m1 = pose3[j];
+      flow.delta = flow.r1 + 30 <= 180 ? 30 : -30;
+      flow.phase = 'moving'; flow.busy = true; renderFlow();
+      startWhirr(); try { await send(`${j} ${flow.delta > 0 ? '+' : ''}${flow.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
+      await readAngles(); armPose = { ...angles }; flow.r2 = armPose[j] !== undefined ? armPose[j] : flow.r1 + flow.delta;
+      flow.busy = false; flow.phase = 'b'; renderFlow(); return;
+    }
+    if (flow.phase === 'b') {
+      const dm = pose3[j] - flow.m1, dr = flow.r2 - flow.r1, c = calib3();
+      let k = kOf(c[j]); if (Math.abs(dr) >= 5 && Math.abs(dm) >= 3) k = dm / dr;
+      k = Math.max(-3, Math.min(3, k)); if (Math.abs(k) < 0.05) k = k < 0 ? -0.05 : 0.05;
+      c[j] = { r1: flow.r1, m1: flow.m1, k: +k.toFixed(3), plus: c[j].plus }; saveCalib3(c);
+      flow.phase = 'c'; renderFlow(); return;
+    }
+    return;
+  }
+  if (flow.step === 'test') { await apply3d(); flow.step = 'chat'; renderFlow(); return; }
+  if (flow.step === 'chat') { localStorage.setItem('aura.setupDone', '1'); flow.step = 'done'; renderFlow(); showMode('chat'); return; }
+  if (flow.step === 'done') { showMode('chat'); }
+}
+async function flowDir(word, type) {
+  const j = J3[flow.ji], c = calib3();
+  if (type) { localStorage.setItem(j === 'w' ? 'aura.typeW' : 'aura.typeR', type); (j === 'w' ? typeW : typeR).value = type; }
+  const plus = flow.delta > 0 ? word : (pairsFor(j).find(p => p[0] !== word) || [word])[0];
+  // for tilt/turn choices the "opposite" is the other word in the same family
+  const opposite = { up: 'down', down: 'up', clockwise: 'anticlockwise', anticlockwise: 'clockwise', left: 'right', right: 'left', forward: 'back', back: 'forward', open: 'close', close: 'open' };
+  c[j] = { ...c[j], plus: flow.delta > 0 ? word : (opposite[word] || word) }; saveCalib3(c);
+  // back to the reference, then next joint
+  flow.phase = 'moving'; flow.busy = true; renderFlow();
+  startWhirr(); try { await send(`${j} ${flow.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
+  await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
+  flow.busy = false;
+  if (flow.ji + 1 < J3.length) { flow.ji++; flow.phase = 'a'; await calibBegin(); }
+  else { wiz = null; applyCalibToChat(); rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); chirp('done'); flow.step = 'test'; renderFlow(); }
+}
+async function calibBegin() {
+  // put this joint at 90 and the model straight, then ask to match
+  const j = J3[flow.ji]; wiz = {}; selectJoint(j);
+  flow.phase = 'moving'; flow.busy = true; renderFlow();
+  startWhirr(); try { await send(`${j} 90`); await sleep(1400); } catch (e) {} stopWhirr();
+  await readAngles(); armPose = { ...angles }; flow.ref = armPose[j] !== undefined ? armPose[j] : 90;
+  pose3[j] = 90; setJoint(j, 90);
+  flow.busy = false; flow.phase = 'a'; renderFlow();
+}
+function flowBack() {
+  if (flow.busy) return;
+  if (flow.step === 'calib') {
+    if (flow.phase === 'a') { if (flow.ji > 0) { flow.ji--; calibBegin(); } else { flow.step = 'connect'; wiz = null; renderFlow(); } }
+    else { calibBegin(); }                                     // redo this joint from its first match
+    return;
+  }
+  if (flow.step === 'test') { flow.step = 'calib'; flow.ji = J3.length - 1; calibBegin(); return; }
+  if (flow.step === 'chat') { flow.step = 'test'; renderFlow(); return; }
+}
+function flowSkip() {
+  if (flow.busy) return;
+  if (flow.step === 'calib') { if (flow.ji + 1 < J3.length) { flow.ji++; calibBegin(); } else { wiz = null; applyCalibToChat(); flow.step = 'test'; renderFlow(); } return; }
+  if (flow.step === 'test') { flow.step = 'chat'; renderFlow(); }
+}
+$('fNext').onclick = flowNext; $('fBack').onclick = flowBack; $('fSkip').onclick = flowSkip;
+$('fHide').onclick = () => { const f = $('flow'); f.classList.toggle('collapsed'); $('fHide').textContent = f.classList.contains('collapsed') ? 'show' : 'hide'; };
+function updateStartHere() { if (flow.step === 'connect' || flow.step === 'done') renderFlow(); }
+function startCalib() { flow.step = 'calib'; flow.ji = 0; wiz = {}; if (!rxChar) { flow.step = 'connect'; renderFlow(); return; } calibBegin(); }
+
 tapBtn.onclick = () => { renderTapGrid(); tapSheet.classList.add('open'); };
 closeTap.onclick = () => tapSheet.classList.remove('open');
 function renderTapGrid() {
@@ -1220,6 +1325,7 @@ async function connect() {
     await tx.startNotifications();
     tx.addEventListener('characteristicvaluechanged', e => onArmText(dec.decode(e.target.value)));
     setLink(true, 'connected'); await loadPoses();
+    if (threeReady) { await read3d(); if (flow.step === 'connect') renderFlow(); }
   } catch (e) { note(poses, 'Could not connect: ' + e.message, 'bad'); }
 }
 connectBtn.onclick = () => rxChar ? device.gatt.disconnect() : connect();
@@ -2171,110 +2277,16 @@ async function apply3d() {
 }
 function calibrated() { return localStorage.getItem('aura.calib3') !== null; }
 
-// ---- guided two-point calibration ----
 let wiz = null;
 const wizard = () => $('wizard'), wizText = () => $('wizText');
 function wizShow(html) { wizard().hidden = false; wizText().innerHTML = html; }
-function wizEnd(msg) { wiz = null; wizard().hidden = true; $('threeStatus').textContent = msg || ''; $('calibBtn').disabled = false; updateStartHere(); }
-async function startCalib() {
-  if (!rxChar) { $('threeStatus').textContent = 'Connect first.'; return; }
-  await readAngles(); if (!Object.keys(angles).length) { $('threeStatus').textContent = 'The arm did not answer.'; return; }
-  armPose = { ...angles };
-  wiz = { i: 0, phase: 'a', c: calib3() };
-  $('calibBtn').disabled = true;
-  await wizStep();
-}
-async function wizStep() {
-  const j = J3[wiz.i]; selectJoint(j); updateStartHere();
-  if (wiz.phase === 'a') {
-    // put the real joint at a known reference (90, or the nearest allowed angle)
-    const ref = clampJoint(j, 90);
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · moving to ${ref}°…`); $('wizNext').disabled = true;
-    startWhirr(); try { await send(`${j} ${ref}`); await sleep(1400); } catch (e) {} stopWhirr();
-    await readAngles(); armPose = { ...angles }; wiz.ref = armPose[j] !== undefined ? armPose[j] : ref;
-    pose3[j] = 90; setJoint(j, 90);                          // model starts straight; you bend it to match
-    $('wizNext').disabled = false;
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 1 of 2<br>The real ${JOINT_LABEL[j].toLowerCase()} is at ${wiz.ref}°. Drag the slider until the model looks the same, then tap Next.`);
-  } else if (wiz.phase === 'b') {
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · step 2 of 3<br>The arm just moved this joint by ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°. Drag the slider until the model matches again, then tap Next.`);
-  } else {
-    $('wizNext').disabled = true;
-    if (j === 'w' || j === 'r') {
-      // these joints may tilt OR turn: the answer tells us both the direction and the type
-      wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
-        <button id="dirUp">up</button><button id="dirDown">down</button><button id="dirCw">clockwise</button><button id="dirCcw">anticlockwise</button></div>`);
-      const pick = (type, word) => { localStorage.setItem(j === 'w' ? 'aura.typeW' : 'aura.typeR', type); (j === 'w' ? typeW : typeR).value = type; wizDir(word); };
-      $('dirUp').onclick = () => pick('tilt', 'up'); $('dirDown').onclick = () => pick('tilt', 'down');
-      $('dirCw').onclick = () => pick('rotate', 'clockwise'); $('dirCcw').onclick = () => pick('rotate', 'anticlockwise');
-    } else {
-      const pairs = pairsFor(j);
-      wizShow(`<b>${JOINT_LABEL[j]}</b> · step 3 of 3<br>Which way did the real ${JOINT_LABEL[j].toLowerCase()} just move?<div class="row2" style="margin-top:10px">
-        <button id="dirA">${pairs[0][0]}</button><button id="dirB">${pairs[1][0]}</button></div>`);
-      $('dirA').onclick = () => wizDir(pairs[0][0]); $('dirB').onclick = () => wizDir(pairs[1][0]);
-    }
-  }
-}
-async function wizDir(word) {
-  const j = J3[wiz.i];
-  // the arm moved by wiz.delta servo degrees and the user saw "word": so a HIGHER angle means…
-  const plus = wiz.delta > 0 ? word : pairsFor(j).find(p => p[0] !== word)[0];
-  wiz.c[j] = { ...wiz.c[j], plus }; saveCalib3(wiz.c);
-  $('wizNext').disabled = false;
-  await wizFinishJoint();
-}
-async function wizNext() {
-  if (!wiz) return;
-  const j = J3[wiz.i];
-  if (wiz.phase === 'a') {
-    wiz.r1 = wiz.ref; wiz.m1 = pose3[j];
-    const rg = jointRanges()[j];
-    wiz.delta = (wiz.r1 + 30 <= rg.max) ? 30 : -30;           // move 30 in whichever direction stays inside the limits
-    wizShow(`<b>${JOINT_LABEL[j]}</b> · moving the arm ${wiz.delta > 0 ? '+' : ''}${wiz.delta}°…`); $('wizNext').disabled = true;
-    startWhirr(); try { await send(`${j} ${wiz.delta > 0 ? '+' : ''}${wiz.delta}`); await sleep(1300); } catch (e) {} stopWhirr();
-    await readAngles(); armPose = { ...angles };
-    wiz.r2 = armPose[j] !== undefined ? armPose[j] : wiz.r1 + wiz.delta;
-    $('wizNext').disabled = false; wiz.phase = 'b'; wizStep();
-  } else if (wiz.phase === 'b') {
-    const m2 = pose3[j];
-    const dm = m2 - wiz.m1, dr = wiz.r2 - wiz.r1;
-    let k = kOf(wiz.c[j]);
-    if (Math.abs(dr) >= 5 && Math.abs(dm) >= 3) k = dm / dr;                       // learned: direction AND how far the model turns per servo degree
-    k = Math.max(-3, Math.min(3, k)); if (Math.abs(k) < 0.05) k = k < 0 ? -0.05 : 0.05;
-    wiz.c[j] = { r1: wiz.r1, m1: wiz.m1, k: +k.toFixed(3), plus: wiz.c[j].plus };
-    saveCalib3(wiz.c);
-    wiz.phase = 'c'; wizStep();
-  }
-}
-async function wizFinishJoint() {
-  const j = J3[wiz.i];
-  wizShow(`<b>${JOINT_LABEL[j]}</b> · back to ${wiz.r1}°…`);
-  startWhirr(); try { await send(`${j} ${wiz.r1}`); await sleep(1300); } catch (e) {} stopWhirr();
-  await readAngles(); armPose = { ...angles }; pose3[j] = toModel(j, armPose[j]); setJoint(j, pose3[j]);
-  {
-    wiz.i++; wiz.phase = 'a';
-    if (wiz.i >= J3.length) {
-      applyCalibToChat();
-      const c = calib3(); wizEnd('Calibrated. ' + J3.map(j => `${j}: + is ${plusWord(j)}`).join(', ') + '. Chat mode words and phrases updated.'); chirp('done');
-      rebuild3d(); [...$('jointChips').children].forEach(ch => ch.textContent = jointLabel(ch.dataset.j)); return;
-    }
-    wizStep();
-  }
-}
-// push what calibration learned into the chat-mode tables (joint words, movement phrases, AI guide)
-function applyCalibToChat() {
-  const jw = defaultJointWords(); jointInputs.forEach(i => i.value = jw[i.dataset.j][i.dataset.d]);
-  localStorage.setItem('aura.moves', JSON.stringify(defaultMoves())); renderMoves();
-  jointGuide.value = defaultGuide();
-  saveSettings();
-}
+function wizEnd(msg) { wiz = null; wizard().hidden = true; $('threeStatus').textContent = msg || ''; updateStartHere(); }
 function adjustJoint() {
   if (!armPose || armPose[sel3] === undefined) { $('threeStatus').textContent = 'Read from arm first.'; return; }
   wiz = { adjust: true };
   wizShow(`<b>${JOINT_LABEL[sel3]}</b> · adjust<br>Drag the slider until the model matches the real arm, then tap Done.`);
-  $('wizNext').textContent = 'Done';
   $('wizNext').onclick = () => {
     const c = calib3(); c[sel3] = { r1: armPose[sel3], m1: pose3[sel3], k: kOf(c[sel3]) }; saveCalib3(c);
-    $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext;
     wizEnd(JOINT_LABEL[sel3] + ' adjusted.'); setJoint(sel3, pose3[sel3]);
   };
 }
@@ -2294,7 +2306,7 @@ function enter3d() {
     const chips = $('jointChips');
     J3.forEach(j => { const b = document.createElement('button'); b.dataset.j = j; b.textContent = jointLabel(j); b.onclick = () => selectJoint(j); chips.appendChild(b); });
     $('calibBtn').onclick = startCalib; $('adjustBtn').onclick = adjustJoint;
-    $('wizNext').onclick = wizNext; $('wizCancel').onclick = () => { $('wizNext').textContent = 'Next'; $('wizNext').onclick = wizNext; wizEnd('Cancelled.'); };
+    $('wizCancel').onclick = () => wizEnd('Cancelled.');
     $('jointSlider').oninput = e => setJoint(sel3, +e.target.value);
     $('nudgeDown').onclick = () => setJoint(sel3, pose3[sel3] - 5);
     $('nudgeUp').onclick = () => setJoint(sel3, pose3[sel3] + 5);
@@ -2304,7 +2316,8 @@ function enter3d() {
   }
   setTimeout(() => T.resize && T.resize(), 50);
   if (rxChar) read3d();
-  updateStartHere();
+  if (setupDone() && flow.step === 'connect') flow.step = 'done';
+  renderFlow();
 }
 
 // ---------- initial load (last, so every function above is ready) ----------
