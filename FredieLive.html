@@ -403,7 +403,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v7.1</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v7.2</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -2180,8 +2180,9 @@ const LIVE_TOOLS = [
 ];
 function liveSessionConfig() {
   const audio = { output: { voice: S.oaiVoice } };
+  const model = live.modelUsed || S.oaiModel;
   if (S.oaiTranscribe) audio.input = { transcription: { model: 'gpt-4o-mini-transcribe' } };
-  return { type: 'realtime', model: S.oaiModel, instructions: liveInstructions(), tools: LIVE_TOOLS, tool_choice: 'auto', max_output_tokens: 150, audio };
+  return { type: 'realtime', model, instructions: liveInstructions(), tools: LIVE_TOOLS, tool_choice: 'auto', max_output_tokens: 150, audio };
 }
 async function liveToken() {
   if (S.oaiTokenUrl) {                                                  // safer: a small server mints the short-lived key
@@ -2190,15 +2191,28 @@ async function liveToken() {
     const d = await r.json(); return d.value || (d.client_secret && d.client_secret.value);
   }
   if (!S.oaiKey) throw new Error('no OpenAI key in Settings');
-  const r = await fetch('https://api.openai.com/v1/realtime/client_secrets', { method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + S.oaiKey },
-    body: JSON.stringify({ session: liveSessionConfig() }) });
-  if (!r.ok) throw new Error('OpenAI ' + r.status + ': ' + (await r.text()).slice(0, 160));
-  const d = await r.json(); return d.value || (d.client_secret && d.client_secret.value);
+  const mint = async (modelOverride) => {
+    const cfg = liveSessionConfig(); if (modelOverride) cfg.model = modelOverride;
+    const r = await fetch('https://api.openai.com/v1/realtime/client_secrets', { method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + S.oaiKey },
+      body: JSON.stringify({ session: cfg }) });
+    const text = await r.text();
+    if (!r.ok) { let msg = text; try { msg = JSON.parse(text).error.message; } catch (e) {} const err = new Error('OpenAI ' + r.status + ': ' + msg.slice(0, 220)); err.status = r.status; throw err; }
+    const d = JSON.parse(text); return d.value || (d.client_secret && d.client_secret.value);
+  };
+  try { return await mint(); }
+  catch (e) {
+    logLine('[live] ' + e.message);
+    if (e.status === 404 && S.oaiModel !== 'gpt-realtime') {          // model not visible to this key: fall back to the always-available alias
+      showToast('Model not available - trying gpt-realtime', 4000);
+      live.modelUsed = 'gpt-realtime'; return await mint('gpt-realtime');
+    }
+    throw e;
+  }
 }
 async function liveStart() {
   if (live.active || live.connecting) return;
-  live.connecting = true; live.said = [];
+  live.connecting = true; live.said = []; live.modelUsed = null;
   setFace('thinking'); setDoing('Connecting to GPT Live…'); showToast('Connecting…', 6000);
   try {
     const key = await liveToken();
@@ -2223,7 +2237,10 @@ async function liveStart() {
     if (rxChar) readAngles().catch(() => {});
   } catch (e) {
     live.connecting = false; liveTeardown();
-    setDoing('GPT Live failed: ' + e.message, true); showToast('Could not start GPT Live'); logLine('[live] ' + e.message);
+    let msg = e.message;
+    if (/404/.test(msg) && /does not exist|access/i.test(msg)) msg += ' — the key cannot see the Realtime models. Check the project\'s model access in the OpenAI dashboard, or make a key in the Default project.';
+    if (/401/.test(msg)) msg += ' — the key was rejected. Paste it again; it must start with sk-.';
+    setDoing('GPT Live failed: ' + msg, true); showToast('Could not start GPT Live'); logLine('[live] ' + msg);
   }
 }
 // ---- local speech gate for the live call: the mic track is switched off while you are quiet,
