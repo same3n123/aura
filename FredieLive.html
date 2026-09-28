@@ -403,7 +403,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v7.2</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v7.3</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -520,9 +520,17 @@
           <p class="hint">Rough guide: mini ≈ ₹2-5 per minute of actual talking, 2.1 ≈ ₹5-12. Silence costs nothing with muting on. Set 0 to never auto-end.</p>
           <p class="hint">With GPT Live, the mic button starts a live voice call. Speak naturally; it answers in its own voice and moves the arm through tools. The wake word is not used during a call - tap the mic again to end it.</p>
         </div>
-        <label>AI mode (Claude engine)<select id="aiMode"><option value="0">Off - only tasks, poses and joint moves</option><option value="1">On - Claude interprets everything else</option></select></label>
+        <h4>Movement interpreter (text)</h4>
+        <p class="hint">Used when you type or say something that is not a known task, phrase or joint move (on-device listening). Works with either provider.</p>
+        <label>AI mode<select id="aiMode"><option value="0">Off - only tasks, poses and joint moves</option><option value="1">On - the AI interprets everything else</option></select></label>
+        <label>Provider<select id="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">OpenAI</option></select></label>
+        <div class="row2">
+          <label>Claude model<select id="model"><option value="claude-sonnet-5">claude-sonnet-5</option><option value="claude-haiku-4-5">claude-haiku-4-5 (cheapest)</option><option value="claude-opus-5">claude-opus-5</option></select></label>
+          <label>OpenAI model<select id="oaiTextModel"><option value="gpt-5.4-mini">gpt-5.4-mini (cheap)</option><option value="gpt-5.4">gpt-5.4</option><option value="gpt-4.1-mini">gpt-4.1-mini</option><option value="gpt-4o-mini">gpt-4o-mini</option></select></label>
+        </div>
+        <h4>Keys</h4>
         <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
-        <div class="row2"><label>Model<input id="model" type="text" value="claude-sonnet-5"></label><label>&nbsp;<button id="testBtn" style="width:100%">Test key</button></label></div>
+        <div class="row2"><button id="testBtn">Test both keys</button></div>
         <div class="note" id="keyNote"></div>
         <label>Personality<select id="persona">
           <option value="">Playful and witty (default)</option>
@@ -692,7 +700,7 @@ function defaultJointWords() { const out = {}; J3.forEach(j => out[j] = plusMinu
 const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast'), level = $('level'), levelBar = level.querySelector('i');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
-const aiEngine = $('aiEngine'), oaiKey = $('oaiKey'), oaiModel = $('oaiModel'), oaiVoice = $('oaiVoice'), oaiTokenUrl = $('oaiTokenUrl'), liveBox = $('liveBox');
+const aiProvider = $('aiProvider'), oaiTextModel = $('oaiTextModel'), aiEngine = $('aiEngine'), oaiKey = $('oaiKey'), oaiModel = $('oaiModel'), oaiVoice = $('oaiVoice'), oaiTokenUrl = $('oaiTokenUrl'), liveBox = $('liveBox');
 const oaiMute = $('oaiMute'), oaiIdle = $('oaiIdle'), oaiTranscribe = $('oaiTranscribe');
 
 // ============================================================
@@ -723,6 +731,8 @@ const S = {
   get sfx() { return LS('sfx', '1') === '1'; },
   get ai() { return LS('ai', '0') === '1'; },
   get aiEngine() { return LS('aiEngine', 'claude'); },
+  get aiProvider() { return LS('aiProvider', 'claude'); },
+  get oaiTextModel() { return LS('oaiTextModel', 'gpt-5.4-mini'); },
   get oaiKey() { return LS('oaiKey', ''); },
   get oaiModel() { return LS('oaiModel', 'gpt-realtime-mini'); },
   get oaiMute() { return LS('oaiMute', '1') === '1'; },
@@ -772,6 +782,8 @@ function loadSettingsUI() {
   eyeColor.value = S.eyeColor; hair.value = S.hair; mustache.value = S.mustache; hairColor.value = S.hairColor; extra.value = S.extra; bowColor.value = S.bowColor;
   blush.value = S.blush ? '1' : '0'; brows.value = S.brows ? '1' : '0'; applyFace();
   aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model;
+  aiProvider.value = S.aiProvider; oaiTextModel.value = S.oaiTextModel;
+  model.value = [...model.options].some(o => o.value === S.model) ? S.model : 'claude-sonnet-5';
   aiEngine.value = S.aiEngine; oaiKey.value = S.oaiKey; oaiModel.value = S.oaiModel; oaiVoice.value = S.oaiVoice; oaiTokenUrl.value = S.oaiTokenUrl;
   oaiMute.value = S.oaiMute ? '1' : '0'; oaiIdle.value = S.oaiIdle; oaiTranscribe.value = S.oaiTranscribe ? '1' : '0';
   liveBox.style.display = S.aiEngine === 'gptlive' ? '' : 'none';
@@ -793,7 +805,8 @@ function saveSettings() {
     set('moves', JSON.stringify(readMoves()));
     set('eyeColor', eyeColor.value); set('hair', hair.value); set('mustache', mustache.value); set('hairColor', hairColor.value); set('extra', extra.value);
     set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
-    set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value.trim() || 'claude-sonnet-5');
+    set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value || 'claude-sonnet-5');
+    set('aiProvider', aiProvider.value); set('oaiTextModel', oaiTextModel.value);
     set('aiEngine', aiEngine.value); set('oaiKey', oaiKey.value.trim()); set('oaiModel', oaiModel.value || 'gpt-realtime-mini'); set('oaiVoice', oaiVoice.value); set('oaiTokenUrl', oaiTokenUrl.value.trim());
     set('oaiMute', oaiMute.value); set('oaiIdle', oaiIdle.value); set('oaiTranscribe', oaiTranscribe.value);
     liveBox.style.display = aiEngine.value === 'gptlive' ? '' : 'none';
@@ -1137,7 +1150,8 @@ function compileTask(t, depth = 0) {
 function updateSummaries() {
   try {
     $('armSum').textContent = rxChar ? 'connected' : 'not connected';
-    $('aiSum').textContent = S.aiEngine === 'gptlive' ? (S.oaiKey || S.oaiTokenUrl ? 'GPT Live' : 'GPT Live, no key') : (S.ai ? (S.apiKey ? 'Claude on' : 'Claude on, no key') : 'off');
+    const hasKey = S.aiProvider === 'openai' ? !!S.oaiKey : !!S.apiKey;
+    $('aiSum').textContent = (S.aiEngine === 'gptlive' ? 'GPT Live · ' : '') + (S.ai ? (S.aiProvider === 'openai' ? 'OpenAI' : 'Claude') + (hasKey ? '' : ', no key') : 'interpreter off');
     $('taskSum').textContent = allTasks().length + ' tasks';
   } catch (e) {}
 }
@@ -1425,15 +1439,27 @@ $('pasteBtn').onclick = async () => {
 };
 
 testBtn.onclick = async () => {
-  const key = apiKey.value.trim(); if (!key) { note(keyNote, 'Paste a key first.', 'bad'); return; }
   note(keyNote, 'Testing…');
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: model.value.trim() || 'claude-sonnet-5', max_tokens: 10, messages: [{ role: 'user', content: 'Say OK' }] }) });
-    const body = await r.text();
-    note(keyNote, r.ok ? 'Key works.' : 'Rejected (' + r.status + '): ' + body.slice(0, 140), r.ok ? 'ok' : 'bad');
-  } catch (e) { note(keyNote, 'Could not reach the API: ' + e.message, 'bad'); }
+  const out = [];
+  const ck = apiKey.value.trim(), ok_ = oaiKey.value.trim();
+  if (!ck) out.push('Claude: no key'); else {
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': ck, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({ model: model.value || 'claude-sonnet-5', max_tokens: 10, messages: [{ role: 'user', content: 'Say OK' }] }) });
+      out.push('Claude: ' + (r.ok ? 'works' : 'rejected (' + r.status + ')'));
+    } catch (e) { out.push('Claude: unreachable'); }
+  }
+  if (!ok_) out.push('OpenAI: no key'); else {
+    try {
+      const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: 'Bearer ' + ok_ },
+        body: JSON.stringify({ model: oaiTextModel.value || 'gpt-5.4-mini', max_completion_tokens: 5, messages: [{ role: 'user', content: 'Say OK' }] }) });
+      let extra = ''; if (!r.ok) { try { extra = ': ' + JSON.parse(await r.text()).error.message.slice(0, 80); } catch (e) {} }
+      out.push('OpenAI: ' + (r.ok ? 'works' : 'rejected (' + r.status + ')' + extra));
+    } catch (e) { out.push('OpenAI: unreachable'); }
+  }
+  note(keyNote, out.join(' · '), out.every(x => /works|no key/.test(x)) ? 'ok' : 'bad');
 };
 
 // ============================================================
@@ -2338,11 +2364,21 @@ const JOINT_CODE = { base: 'b', shoulder: 's', elbow: 'e', wrist: 'w', roll: 'r'
 // ============================================================
 //  AI mode: Claude interprets movement and chats back
 // ============================================================
+// One function, two providers: returns the model's text (JSON expected by the caller)
 async function claude(system, user) {
+  if (S.aiProvider === 'openai') {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + S.oaiKey },
+      body: JSON.stringify({ model: S.oaiTextModel, max_completion_tokens: 400, response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }) });
+    if (!r.ok) throw new Error('OpenAI ' + r.status + ': ' + (await r.text()).slice(0, 160));
+    const data = await r.json();
+    return ((data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '').replace(/```json|```/g, '').trim();
+  }
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': S.apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
     body: JSON.stringify({ model: S.model, max_tokens: 400, system, messages: [{ role: 'user', content: user }] }) });
-  if (!r.ok) throw new Error('API ' + r.status + ': ' + (await r.text()).slice(0, 160));
+  if (!r.ok) throw new Error('Claude ' + r.status + ': ' + (await r.text()).slice(0, 160));
   const data = await r.json();
   return data.content.filter(c => c.type === 'text').map(c => c.text).join('').replace(/```json|```/g, '').trim();
 }
@@ -2388,7 +2424,8 @@ function validateAI(cmds) {
   return out;
 }
 async function askAI(text) {
-  if (!S.apiKey) { setDoing('AI mode is on but there is no API key in Settings.', true); showToast('No API key'); say('I need an API key first'); return; }
+  const needKey = S.aiProvider === 'openai' ? S.oaiKey : S.apiKey;
+  if (!needKey) { setDoing('AI mode is on but there is no ' + (S.aiProvider === 'openai' ? 'OpenAI' : 'Claude') + ' key in Settings.', true); showToast('No API key'); say('I need an API key first'); return; }
   setFace('thinking'); setDoing('Thinking…'); showToast('Thinking…', 4000); startThinking();
   try {
     await readAngles();
