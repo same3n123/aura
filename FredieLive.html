@@ -403,7 +403,7 @@
   </button>
 </div>
 <div id="bigName">FREDIE</div>
-<span id="pill" hidden></span><span id="ver" hidden>v7.3</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
+<span id="pill" hidden></span><span id="ver" hidden>v7.4</span><button id="tapBtn" hidden></button><button id="backChat" hidden></button>
 <div id="toast"></div>
 <div id="stage">
   <div id="level"><i></i></div>
@@ -505,33 +505,36 @@
     <details class="grp">
       <summary><span class="gi">🧠</span> AI <small id="aiSum"></small></summary>
       <div class="gbody">
-        <label>Conversation engine<select id="aiEngine"><option value="claude">Claude (text in, text out) - on-device listening</option><option value="gptlive">GPT Live (real-time voice, talks back, can be interrupted)</option></select></label>
-        <div id="liveBox">
+        <label>AI provider<select id="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">OpenAI</option></select></label>
+        <label>AI mode<select id="aiMode"><option value="0">Off - only tasks, phrases and joint moves</option><option value="1">On - the AI interprets anything else you say</option></select></label>
+
+        <div id="claudeBox">
+          <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
+          <label>Model<select id="model"><option value="claude-sonnet-5">claude-sonnet-5</option><option value="claude-haiku-4-5">claude-haiku-4-5 (cheapest)</option><option value="claude-opus-5">claude-opus-5</option></select></label>
+          <p class="hint">Listening stays on-device; replies use the phone's voice.</p>
+        </div>
+
+        <div id="openaiBox">
           <label>OpenAI API key<input id="oaiKey" type="password" placeholder="sk-…"></label>
-          <div class="row2"><label>Model<select id="oaiModel"><option value="gpt-realtime-mini">gpt-realtime-mini (cheapest)</option><option value="gpt-realtime-2.1">gpt-realtime-2.1 (best)</option><option value="gpt-realtime">gpt-realtime (alias)</option></select></label>
-          <label>Voice<select id="oaiVoice"><option>marin</option><option>cedar</option><option>alloy</option><option>ash</option><option>ballad</option><option>coral</option><option>echo</option><option>sage</option><option>shimmer</option><option>verse</option></select></label></div>
-          <label>Token server URL (optional, safer - see the setup steps)<input id="oaiTokenUrl" type="text" placeholder="https://your-server/token"></label>
-          <h4>Keep the bill down</h4>
-          <div class="row2">
-            <label>Mute mic in silence<select id="oaiMute"><option value="1">On (not billed while quiet)</option><option value="0">Off</option></select></label>
-            <label>End call after quiet (seconds)<input id="oaiIdle" type="number" min="0" value="60"></label>
+          <label>Model for interpreting text<select id="oaiTextModel"><option value="gpt-5.4-mini">gpt-5.4-mini (cheap)</option><option value="gpt-5.4">gpt-5.4</option><option value="gpt-4.1-mini">gpt-4.1-mini</option><option value="gpt-4o-mini">gpt-4o-mini</option></select></label>
+          <label>Voice<select id="oaiVoiceMode"><option value="local">On-device listening + phone voice (cheap)</option><option value="live">GPT Live - real-time voice call, talks back, can be interrupted</option></select></label>
+          <div id="liveBox">
+            <div class="row2"><label>Live model<select id="oaiModel"><option value="gpt-realtime-mini">gpt-realtime-mini (cheapest)</option><option value="gpt-realtime-2.1">gpt-realtime-2.1 (best)</option><option value="gpt-realtime">gpt-realtime (alias)</option></select></label>
+            <label>Live voice<select id="oaiVoice"><option>marin</option><option>cedar</option><option>alloy</option><option>ash</option><option>ballad</option><option>coral</option><option>echo</option><option>sage</option><option>shimmer</option><option>verse</option></select></label></div>
+            <label>Token server URL (optional, safer)<input id="oaiTokenUrl" type="text" placeholder="https://your-server/token"></label>
+            <div class="row2">
+              <label>Mute mic in silence<select id="oaiMute"><option value="0">Off (most reliable)</option><option value="1">On (saves money)</option></select></label>
+              <label>End call after quiet (s)<input id="oaiIdle" type="number" min="0" value="60"></label>
+            </div>
+            <label>Transcribe what you say (for the log)<select id="oaiTranscribe"><option value="1">On</option><option value="0">Off</option></select></label>
+            <p class="hint">The mic button starts a live call; no wake word during a call; tap the mic again to end it. Rough cost: mini ≈ ₹2-5 per minute of talking.</p>
           </div>
-          <label>Transcribe what you say (shows in the log; costs a little)<select id="oaiTranscribe"><option value="1">On</option><option value="0">Off</option></select></label>
-          <p class="hint">Rough guide: mini ≈ ₹2-5 per minute of actual talking, 2.1 ≈ ₹5-12. Silence costs nothing with muting on. Set 0 to never auto-end.</p>
-          <p class="hint">With GPT Live, the mic button starts a live voice call. Speak naturally; it answers in its own voice and moves the arm through tools. The wake word is not used during a call - tap the mic again to end it.</p>
         </div>
-        <h4>Movement interpreter (text)</h4>
-        <p class="hint">Used when you type or say something that is not a known task, phrase or joint move (on-device listening). Works with either provider.</p>
-        <label>AI mode<select id="aiMode"><option value="0">Off - only tasks, poses and joint moves</option><option value="1">On - the AI interprets everything else</option></select></label>
-        <label>Provider<select id="aiProvider"><option value="claude">Claude (Anthropic)</option><option value="openai">OpenAI</option></select></label>
-        <div class="row2">
-          <label>Claude model<select id="model"><option value="claude-sonnet-5">claude-sonnet-5</option><option value="claude-haiku-4-5">claude-haiku-4-5 (cheapest)</option><option value="claude-opus-5">claude-opus-5</option></select></label>
-          <label>OpenAI model<select id="oaiTextModel"><option value="gpt-5.4-mini">gpt-5.4-mini (cheap)</option><option value="gpt-5.4">gpt-5.4</option><option value="gpt-4.1-mini">gpt-4.1-mini</option><option value="gpt-4o-mini">gpt-4o-mini</option></select></label>
-        </div>
-        <h4>Keys</h4>
-        <label>Claude API key<input id="apiKey" type="password" placeholder="sk-ant-…"></label>
-        <div class="row2"><button id="testBtn">Test both keys</button></div>
+
+        <div class="row2"><button id="testBtn">Test key</button></div>
         <div class="note" id="keyNote"></div>
+        <select id="aiEngine" hidden><option value="claude"></option><option value="gptlive"></option></select>
+
         <label>Personality<select id="persona">
           <option value="">Playful and witty (default)</option>
           <option value="Calm, polite and precise. Short, warm sentences. Never jokes at the user's expense.">Calm and polite</option>
@@ -700,7 +703,7 @@ function defaultJointWords() { const out = {}; J3.forEach(j => out[j] = plusMinu
 const eyeColor = $('eyeColor'), hair = $('hair'), mustache = $('mustache'), hairColor = $('hairColor'), extra = $('extra'), bowColor = $('bowColor'), blush = $('blush'), brows = $('brows');
 const consoleBox = $('console'), bottom = $('bottom'), kbBtn = $('kbBtn'), ears = $('ears'), toast = $('toast'), level = $('level'), levelBar = level.querySelector('i');
 const aiMode = $('aiMode'), apiKey = $('apiKey'), model = $('model'), testBtn = $('testBtn'), keyNote = $('keyNote'), jointGuide = $('jointGuide'), persona = $('persona');
-const aiProvider = $('aiProvider'), oaiTextModel = $('oaiTextModel'), aiEngine = $('aiEngine'), oaiKey = $('oaiKey'), oaiModel = $('oaiModel'), oaiVoice = $('oaiVoice'), oaiTokenUrl = $('oaiTokenUrl'), liveBox = $('liveBox');
+const aiProvider = $('aiProvider'), oaiTextModel = $('oaiTextModel'), oaiVoiceMode = $('oaiVoiceMode'), claudeBox = $('claudeBox'), openaiBox = $('openaiBox'), aiEngine = $('aiEngine'), oaiKey = $('oaiKey'), oaiModel = $('oaiModel'), oaiVoice = $('oaiVoice'), oaiTokenUrl = $('oaiTokenUrl'), liveBox = $('liveBox');
 const oaiMute = $('oaiMute'), oaiIdle = $('oaiIdle'), oaiTranscribe = $('oaiTranscribe');
 
 // ============================================================
@@ -730,12 +733,13 @@ const S = {
   get talk() { return LS('talk', '1') === '1'; },
   get sfx() { return LS('sfx', '1') === '1'; },
   get ai() { return LS('ai', '0') === '1'; },
-  get aiEngine() { return LS('aiEngine', 'claude'); },
+  get oaiVoiceMode() { return LS('oaiVoiceMode', 'local'); },
+  get aiEngine() { return (LS('aiProvider', 'claude') === 'openai' && LS('oaiVoiceMode', 'local') === 'live') ? 'gptlive' : 'claude'; },
   get aiProvider() { return LS('aiProvider', 'claude'); },
   get oaiTextModel() { return LS('oaiTextModel', 'gpt-5.4-mini'); },
   get oaiKey() { return LS('oaiKey', ''); },
   get oaiModel() { return LS('oaiModel', 'gpt-realtime-mini'); },
-  get oaiMute() { return LS('oaiMute', '1') === '1'; },
+  get oaiMute() { return LS('oaiMute', '0') === '1'; },
   get oaiIdle() { const v = parseInt(LS('oaiIdle', '60'), 10); return isNaN(v) ? 60 : v; },
   get oaiTranscribe() { return LS('oaiTranscribe', '1') === '1'; },
   get oaiVoice() { return LS('oaiVoice', 'marin'); },
@@ -784,9 +788,9 @@ function loadSettingsUI() {
   aiMode.value = S.ai ? '1' : '0'; apiKey.value = S.apiKey; model.value = S.model;
   aiProvider.value = S.aiProvider; oaiTextModel.value = S.oaiTextModel;
   model.value = [...model.options].some(o => o.value === S.model) ? S.model : 'claude-sonnet-5';
-  aiEngine.value = S.aiEngine; oaiKey.value = S.oaiKey; oaiModel.value = S.oaiModel; oaiVoice.value = S.oaiVoice; oaiTokenUrl.value = S.oaiTokenUrl;
+  oaiVoiceMode.value = S.oaiVoiceMode; oaiKey.value = S.oaiKey; oaiModel.value = S.oaiModel; oaiVoice.value = S.oaiVoice; oaiTokenUrl.value = S.oaiTokenUrl;
   oaiMute.value = S.oaiMute ? '1' : '0'; oaiIdle.value = S.oaiIdle; oaiTranscribe.value = S.oaiTranscribe ? '1' : '0';
-  liveBox.style.display = S.aiEngine === 'gptlive' ? '' : 'none';
+  showAiBoxes();
   persona.value = [...persona.options].some(o => o.value === S.persona) ? S.persona : '';
   updateSummaries();
   jointGuide.value = S.jointGuide;
@@ -807,11 +811,12 @@ function saveSettings() {
     set('bowColor', bowColor.value); set('blush', blush.value); set('brows', brows.value);
     set('ai', aiMode.value); set('apiKey', apiKey.value.trim()); set('model', model.value || 'claude-sonnet-5');
     set('aiProvider', aiProvider.value); set('oaiTextModel', oaiTextModel.value);
-    set('aiEngine', aiEngine.value); set('oaiKey', oaiKey.value.trim()); set('oaiModel', oaiModel.value || 'gpt-realtime-mini'); set('oaiVoice', oaiVoice.value); set('oaiTokenUrl', oaiTokenUrl.value.trim());
+    set('oaiVoiceMode', oaiVoiceMode.value); set('oaiKey', oaiKey.value.trim()); set('oaiModel', oaiModel.value || 'gpt-realtime-mini'); set('oaiVoice', oaiVoice.value); set('oaiTokenUrl', oaiTokenUrl.value.trim());
     set('oaiMute', oaiMute.value); set('oaiIdle', oaiIdle.value); set('oaiTranscribe', oaiTranscribe.value);
-    liveBox.style.display = aiEngine.value === 'gptlive' ? '' : 'none';
+    showAiBoxes();
     set('jointGuide', jointGuide.value); set('persona', persona.value);
   } catch (e) { note(saveNote, 'Could not save - is this a private/incognito tab?', 'bad'); return; }
+  try { updateSummaries(); } catch (e) {}
   note(saveNote, 'Saved. Wake word is "' + S.wakeWord + '". AI mode ' + (S.ai ? (S.apiKey ? 'on.' : 'on, but no API key!') : 'off.'), S.ai && !S.apiKey ? 'bad' : 'ok');
 }
 // ---------- the face itself (drawn twice: on stage and in the settings preview) ----------
@@ -1147,11 +1152,16 @@ function compileTask(t, depth = 0) {
   return out;
 }
 
+function showAiBoxes() {
+  const openai = aiProvider.value === 'openai';
+  claudeBox.style.display = openai ? 'none' : ''; openaiBox.style.display = openai ? '' : 'none';
+  liveBox.style.display = (openai && oaiVoiceMode.value === 'live') ? '' : 'none';
+}
 function updateSummaries() {
   try {
     $('armSum').textContent = rxChar ? 'connected' : 'not connected';
     const hasKey = S.aiProvider === 'openai' ? !!S.oaiKey : !!S.apiKey;
-    $('aiSum').textContent = (S.aiEngine === 'gptlive' ? 'GPT Live · ' : '') + (S.ai ? (S.aiProvider === 'openai' ? 'OpenAI' : 'Claude') + (hasKey ? '' : ', no key') : 'interpreter off');
+    $('aiSum').textContent = (S.aiProvider === 'openai' ? 'OpenAI' : 'Claude') + (S.aiEngine === 'gptlive' ? ' · GPT Live' : '') + (S.ai ? '' : ' · interpreter off') + (hasKey ? '' : ' · no key');
     $('taskSum').textContent = allTasks().length + ' tasks';
   } catch (e) {}
 }
@@ -1441,8 +1451,9 @@ $('pasteBtn').onclick = async () => {
 testBtn.onclick = async () => {
   note(keyNote, 'Testing…');
   const out = [];
-  const ck = apiKey.value.trim(), ok_ = oaiKey.value.trim();
-  if (!ck) out.push('Claude: no key'); else {
+  const openai = aiProvider.value === 'openai';
+  const ck = openai ? '' : apiKey.value.trim(), ok_ = openai ? oaiKey.value.trim() : '';
+  if (!openai && !ck) out.push('Claude: no key'); else if (ck) {
     try {
       const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': ck, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -1450,7 +1461,7 @@ testBtn.onclick = async () => {
       out.push('Claude: ' + (r.ok ? 'works' : 'rejected (' + r.status + ')'));
     } catch (e) { out.push('Claude: unreachable'); }
   }
-  if (!ok_) out.push('OpenAI: no key'); else {
+  if (openai && !ok_) out.push('OpenAI: no key'); else if (ok_) {
     try {
       const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST',
         headers: { 'content-type': 'application/json', authorization: 'Bearer ' + ok_ },
@@ -1459,7 +1470,7 @@ testBtn.onclick = async () => {
       out.push('OpenAI: ' + (r.ok ? 'works' : 'rejected (' + r.status + ')' + extra));
     } catch (e) { out.push('OpenAI: unreachable'); }
   }
-  note(keyNote, out.join(' · '), out.every(x => /works|no key/.test(x)) ? 'ok' : 'bad');
+  note(keyNote, out.join(' · '), out.every(x => /works/.test(x)) ? 'ok' : 'bad');
 };
 
 // ============================================================
@@ -2251,7 +2262,11 @@ async function liveStart() {
     liveGateStart();
     const dc = pc.createDataChannel('oai-events'); live.dc = dc;
     dc.onmessage = e => { try { liveEvent(JSON.parse(e.data)); } catch (err) {} };
-    dc.onopen = () => { logLine('[live] connected'); dc.send(JSON.stringify({ type: 'session.update', session: liveSessionConfig() })); };
+    dc.onopen = () => {
+      logLine('[live] connected');
+      dc.send(JSON.stringify({ type: 'session.update', session: liveSessionConfig() }));
+      setTimeout(() => liveSend({ type: 'response.create', response: { instructions: `Greet the user in one short sentence as ${S.wakeWord} and ask what they'd like to do.` } }), 400);
+    };
     dc.onclose = () => { if (live.active) liveStop('Call ended.'); };
     const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
     const r = await fetch('https://api.openai.com/v1/realtime/calls', { method: 'POST', body: offer.sdp, headers: { authorization: 'Bearer ' + key, 'content-type': 'application/sdp' } });
@@ -2260,6 +2275,8 @@ async function liveStart() {
     live.active = true; live.connecting = false; listening = true; awake = true; micActive = true; liveTouch();
     power.className = 'on'; settings.classList.remove('open');
     chirp('wake'); setFace('listening'); setDoing('Live. Just talk.'); updateEars(); tickHint();
+    live.heardOnce = false;
+    setTimeout(() => { if (live.active && !live.heardOnce) { setDoing('Not hearing you yet. Speak up close to the phone - the bar above the face should move.', true); showToast('Say something - the bar should move', 4000); } }, 15000);
     if (rxChar) readAngles().catch(() => {});
   } catch (e) {
     live.connecting = false; liveTeardown();
@@ -2272,20 +2289,25 @@ async function liveStart() {
 // ---- local speech gate for the live call: the mic track is switched off while you are quiet,
 //      so silence is never streamed (or billed). A short hang-over keeps sentence ends intact. ----
 function liveGateStart() {
-  if (!S.oaiMute) return;
+  // Always show the level bar so you can see the phone is hearing you. Muting is optional and conservative:
+  // the track starts OPEN, only closes after ~2 s of quiet, and re-opens on the first loud frame.
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const src = ctx.createMediaStreamSource(live.mic), node = ctx.createScriptProcessor(2048, 1, 1);
-    const g = { floor: 0.02, hang: 0 }, track = live.mic.getAudioTracks()[0];
+    const frameMs = 2048 / ctx.sampleRate * 1000, quietFrames = Math.round(2000 / frameMs);
+    const g = { floor: 0.01, quiet: 0, warmup: Math.round(1500 / frameMs) }, track = live.mic.getAudioTracks()[0];
+    track.enabled = true;
     node.onaudioprocess = e => {
       const d = e.inputBuffer.getChannelData(0); let sum = 0; for (let i = 0; i < d.length; i += 4) sum += d[i] * d[i];
       const rms = Math.sqrt(sum / (d.length / 4));
       g.floor = rms < g.floor ? g.floor * 0.9 + rms * 0.1 : g.floor * 0.995 + rms * 0.005;
-      const loud = rms > Math.max(g.floor * S.vad, 0.008);
-      if (loud) { g.hang = 8; liveTouch(); }                     // ~1 s hang-over
-      const open = g.hang > 0; if (!loud && g.hang > 0) g.hang--;
-      if (track.enabled !== open) track.enabled = open;
-      const pct = Math.min(100, Math.round(rms * 400)); levelBar.style.width = pct + '%'; levelBar.classList.toggle('talk', open);
+      const loud = rms > Math.max(g.floor * S.vad, 0.006);
+      if (loud) { g.quiet = 0; liveTouch(); } else g.quiet++;
+      let open = true;
+      if (S.oaiMute && g.warmup <= 0) open = loud || g.quiet < quietFrames;
+      if (g.warmup > 0) g.warmup--;
+      if (track.enabled !== open) { track.enabled = open; logLine('[live] mic ' + (open ? 'open' : 'muted (quiet)')); }
+      const pct = Math.min(100, Math.round(rms * 400)); levelBar.style.width = pct + '%'; levelBar.classList.toggle('talk', loud); levelBar.classList.toggle('hot', !open);
     };
     src.connect(node); node.connect(ctx.destination);
     live.gate = { ctx, node }; level.classList.add('show');
@@ -2316,7 +2338,8 @@ function liveSend(obj) { try { live.dc && live.dc.readyState === 'open' && live.
 
 function liveEvent(ev) {
   switch (ev.type) {
-    case 'input_audio_buffer.speech_started': setFace('hearing'); setHeard('…', true); liveTouch(); break;
+    case 'input_audio_buffer.speech_started': live.heardOnce = true; setFace('hearing'); setHeard('…', true); liveTouch(); break;
+    case 'session.updated': case 'session.created': logLine('[live] session ready'); break;
     case 'input_audio_buffer.speech_stopped': setFace('thinking'); break;
     case 'conversation.item.input_audio_transcription.completed': if (ev.transcript) { setHeard(ev.transcript.trim()); logLine('[you] ' + ev.transcript.trim()); } break;
     case 'response.created': setFace('thinking'); liveTouch(); break;
